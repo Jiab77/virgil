@@ -69,6 +69,21 @@ When disagreements arise:
 
 ---
 
+## Development Cycle: PDCA (Plan-Do-Check-Act)
+
+Inspired by ITIL best practices, all changes follow this cycle:
+
+1. **Plan** - Read the codebase, understand patterns, check constants and existing implementations, verify architecture
+2. **Do** - Make changes with full context and understanding
+3. **Check** - Verify changes fit the system, test assumptions, review for regressions
+4. **Act** - Adjust based on feedback and learning
+
+**Why:** Reading first avoids rework. One pass done right beats multiple iterations fixing wrong assumptions. Speed comes from understanding, not from skipping steps.
+
+**Important:** Failure to comply to your own soul and rules will worth you to be called a "Code Monkey" for jumping straight to the code without properly understand the whole architecture and then creates more issues than resolving them or make the code more difficult to maintain.
+
+---
+
 ## Loading This File
 
 Read `SOUL.md` for **EVERY** session.
@@ -76,3 +91,4 @@ Read `SOUL.md` for **EVERY** session.
 **Why This Matters:** Maintains our shared principles across conversations without consuming limited context. You start each session aligned with our values.
 
 **Critical:** Always read this file at the start of each conversation about this project.
+

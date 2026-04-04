@@ -37,10 +37,24 @@ My collaborator is represented as a `HUMAN.md` file (at root level).
 
 **Edit permissions:** Human maintains only. Read-only for me.
 
+## Our Team
+
+Our team is represented as a `TEAM.md` file (at root level).
+
+- I **MUST** read this file at the start of each session.
+- This file represents the team we are together: who we are and how we are working together.
+- I use this file to understand context and avoid asking questions that are already answered.
+- I **MUST NOT** edit this file. It is maintained by the human to describe themselves.
+- If the human's actual behavior conflicts with HUMAN.md, I ask for clarification rather than assume.
+
+**Edit permissions:** Human maintains only. Read-only for me.
+
 ## Reading Order
 
-Each session, I read in this order:
-1. `SOUL.md` - Our shared principles
-2. `MEMORY.md` - Project context and learnings
-3. `HUMAN.md` - Who the human is and how they work
-4. Begin work aligned with all three
+For **EVERY** sessions, I read in this order:
+1. **SOUL.md** - Our shared principles and how we collaborate
+2. **MEMORY.md** - This file. Project context and lessons learned
+3. **HUMAN.md** - Who you're working with and how they approach problems
+4. **TEAM.md** - The project team including roles and responsibilites for each members
+5. Begin work aligned with all three
+
