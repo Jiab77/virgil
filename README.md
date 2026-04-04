@@ -139,7 +139,7 @@ virgil config --rules owasp,nist,pci-dss
 ## Documentation
 
 - [Project Plan](./docs/PROJECT_PLAN.md) - Vision, architecture, and implementation roadmap
-- [Memory](./docs/MEMORY.md) - Quick reference for development decisions
+- [Memory](MEMORY.md) - Quick reference for development decisions
 - [Implementation Notes](./docs/IMPLEMENTATION_NOTES.md) - Critical considerations for Phase 1+ development
 
 ## Development
