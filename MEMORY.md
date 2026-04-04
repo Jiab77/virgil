@@ -72,9 +72,11 @@ Read `MEMORY.md` for **EVERY** session.
 
 ---
 
-> ## Session 13 (2026-04-04): Libraries Under Review
+> ## Session 13 (2026-04-04): Start (bubbletea/bubbles added to review list)
 
-### charmbracelet/bubbletea (v2.0.2)
+### Libraries Under Review
+
+#### charmbracelet/bubbletea (v2.0.2)
 - **What it is:** A Go TUI framework based on The Elm Architecture (Model / Update / View)
 - **Import path:** `charm.land/bubbletea/v2`
 - **Core pattern:** Immutable model struct → `Init()` returns initial `Cmd`, `Update(msg)` returns updated model + next `Cmd`, `View()` returns `tea.View`
@@ -85,7 +87,7 @@ Read `MEMORY.md` for **EVERY** session.
 - **License:** MIT
 - **Repo:** https://github.com/charmbracelet/bubbletea
 
-### charmbracelet/bubbles (v2.1.0)
+#### charmbracelet/bubbles (v2.1.0)
 - **What it is:** Ready-made TUI components for use with Bubble Tea
 - **Import path:** follows bubbletea v2 conventions
 - **Available components:**
@@ -110,12 +112,6 @@ Read `MEMORY.md` for **EVERY** session.
 - Bubbletea + Bubbles would enable interactive TUI modes: navigable result lists, progress bars during directory scans, spinners during LLM calls, scrollable viewports for long output.
 - The List and Viewport components are directly applicable to the directory scan output redesign under discussion.
 - No decision made yet on adopting these — flagged for review and architectural discussion.
-
----
-
-## Last Updated
-
-2026-02-25 Session 12 + Session 13 start (bubbletea/bubbles added to review list)
 
 ---
 
