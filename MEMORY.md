@@ -72,7 +72,54 @@ Read `MEMORY.md` for **EVERY** session.
 
 ---
 
-> ## Session 12 (2026-02-25 continued): Virgil-Learn Line Numbers & Summary Fix
+> ## Session 13 (2026-04-04): Libraries Under Review
+
+### charmbracelet/bubbletea (v2.0.2)
+- **What it is:** A Go TUI framework based on The Elm Architecture (Model / Update / View)
+- **Import path:** `charm.land/bubbletea/v2`
+- **Core pattern:** Immutable model struct → `Init()` returns initial `Cmd`, `Update(msg)` returns updated model + next `Cmd`, `View()` returns `tea.View`
+- **Key features:** Cell-based renderer, color downsampling, declarative views, keyboard + mouse handling, native clipboard support, inline or full-window modes
+- **Debugging:** Cannot log to stdout (TUI owns it) — use `tea.LogToFile("debug.log", "debug")` + `tail -f debug.log` in a second terminal
+- **Companion libraries:** Bubbles (components), Lip Gloss (styling/layout), Harmonica (spring animations), BubbleZone (mouse tracking)
+- **Stars:** 41k+ — production-grade, widely used (Microsoft Azure, AWS, CockroachDB, MinIO, etc.)
+- **License:** MIT
+- **Repo:** https://github.com/charmbracelet/bubbletea
+
+### charmbracelet/bubbles (v2.1.0)
+- **What it is:** Ready-made TUI components for use with Bubble Tea
+- **Import path:** follows bubbletea v2 conventions
+- **Available components:**
+  - `Spinner` — operation-in-progress indicator with custom frames
+  - `TextInput` — single-line input with unicode, paste, in-place scrolling
+  - `TextArea` — multi-line input with vertical scrolling
+  - `Table` — tabular data with vertical scroll
+  - `Progress` — animated/static progress bar (solid or gradient fill)
+  - `Paginator` — dot-style or numeric pagination logic + optional UI
+  - `Viewport` — vertically scrollable content pane (high-perf mode for alt screen)
+  - `List` — full-featured list browser with pagination, fuzzy filter, spinner, help
+  - `FilePicker` — filesystem navigator with extension filtering
+  - `Timer` / `Stopwatch` — countdown / countup with configurable frequency
+  - `Help` — auto-generated keybinding help view (single or multi-line)
+  - `Key` — non-visual keybinding manager for remapping + help text generation
+- **Stars:** 8k+
+- **License:** MIT
+- **Repo:** https://github.com/charmbracelet/bubbles
+
+### Why These Are Relevant to Virgil
+- Virgil is a CLI tool. Both `virgil` and `virgil-learn` currently produce plain text output.
+- Bubbletea + Bubbles would enable interactive TUI modes: navigable result lists, progress bars during directory scans, spinners during LLM calls, scrollable viewports for long output.
+- The List and Viewport components are directly applicable to the directory scan output redesign under discussion.
+- No decision made yet on adopting these — flagged for review and architectural discussion.
+
+---
+
+## Last Updated
+
+2026-02-25 Session 12 + Session 13 start (bubbletea/bubbles added to review list)
+
+---
+
+## Session 12 (2026-02-25 continued): Virgil-Learn Line Numbers & Summary Fix
 
 ### Accomplishments
 
@@ -320,52 +367,3 @@ This is deliberate teaching. It's working. I'm learning Go patterns, architectur
 - Ask before deciding
 - Understand before implementing
 - Speed is never the priority
-
----
-
-## Libraries Under Review
-
-### charmbracelet/bubbletea (v2.0.2)
-- **What it is:** A Go TUI framework based on The Elm Architecture (Model / Update / View)
-- **Import path:** `charm.land/bubbletea/v2`
-- **Core pattern:** Immutable model struct → `Init()` returns initial `Cmd`, `Update(msg)` returns updated model + next `Cmd`, `View()` returns `tea.View`
-- **Key features:** Cell-based renderer, color downsampling, declarative views, keyboard + mouse handling, native clipboard support, inline or full-window modes
-- **Debugging:** Cannot log to stdout (TUI owns it) — use `tea.LogToFile("debug.log", "debug")` + `tail -f debug.log` in a second terminal
-- **Companion libraries:** Bubbles (components), Lip Gloss (styling/layout), Harmonica (spring animations), BubbleZone (mouse tracking)
-- **Stars:** 41k+ — production-grade, widely used (Microsoft Azure, AWS, CockroachDB, MinIO, etc.)
-- **License:** MIT
-- **Repo:** https://github.com/charmbracelet/bubbletea
-
-### charmbracelet/bubbles (v2.1.0)
-- **What it is:** Ready-made TUI components for use with Bubble Tea
-- **Import path:** follows bubbletea v2 conventions
-- **Available components:**
-  - `Spinner` — operation-in-progress indicator with custom frames
-  - `TextInput` — single-line input with unicode, paste, in-place scrolling
-  - `TextArea` — multi-line input with vertical scrolling
-  - `Table` — tabular data with vertical scroll
-  - `Progress` — animated/static progress bar (solid or gradient fill)
-  - `Paginator` — dot-style or numeric pagination logic + optional UI
-  - `Viewport` — vertically scrollable content pane (high-perf mode for alt screen)
-  - `List` — full-featured list browser with pagination, fuzzy filter, spinner, help
-  - `FilePicker` — filesystem navigator with extension filtering
-  - `Timer` / `Stopwatch` — countdown / countup with configurable frequency
-  - `Help` — auto-generated keybinding help view (single or multi-line)
-  - `Key` — non-visual keybinding manager for remapping + help text generation
-- **Stars:** 8k+
-- **License:** MIT
-- **Repo:** https://github.com/charmbracelet/bubbles
-
-### Why These Are Relevant to Virgil
-- Virgil is a CLI tool. Both `virgil` and `virgil-learn` currently produce plain text output.
-- Bubbletea + Bubbles would enable interactive TUI modes: navigable result lists, progress bars during directory scans, spinners during LLM calls, scrollable viewports for long output.
-- The List and Viewport components are directly applicable to the directory scan output redesign under discussion.
-- No decision made yet on adopting these — flagged for review and architectural discussion.
-
----
-
-## Last Updated
-
-2026-02-25 Session 12 + Session 13 start (bubbletea/bubbles added to review list)
-
----
