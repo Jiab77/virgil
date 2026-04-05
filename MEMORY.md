@@ -103,7 +103,29 @@ Read `MEMORY.md` for **EVERY** session.
 - Progress bar deferred: spinner used for both single-file and directory modes in TUI until `ProgressFunc` callback is added to `BashAnalyzer`
 - Lipgloss brand colour for virgil: `#7D56F4` (purple) — confirmed by user, do not change
 - **`virgil-learn` is the TUI + Learning mode test bed** — validate all TUI + Learning patterns here before applying to main `virgil` binary
-- **Design reference for main `virgil` binary TUI:** [Crush by Charmbracelet](https://github.com/charmbracelet/crush) — sidebar layout, section-based navigation (LSPs, MCPs, Modified Files, etc.), magenta/cyan palette, help bar at bottom with key/description pairs. Adapt the layout concept, not the colours (virgil keeps its own palette).
+- **Design references for Virgil TUI — see dedicated section below.**
+
+### TUI Design References & Visual Philosophy
+
+**Core principle:** Serious tools and beautiful colors are not opposites. Color carries meaning, not decoration. Virgil should be a serious tool that happens to look excellent.
+
+**Virgil brand colour:** `#7D56F4` (purple) — confirmed by user, do not change under any circumstances.
+
+| Project | Repo | What to take from it |
+|---|---|---|
+| **Crush** | https://github.com/charmbracelet/crush | Primary layout reference for `virgil` binary: sidebar + section navigation (LSPs, Modified Files, etc.), top brand bar, bottom help bar. Similar purpose to Virgil (LLM-driven code tooling). Adapt layout, keep Virgil's own palette. |
+| **GoAccess** | https://goaccess.io | Color as functional signal: green = healthy, red = warning/anomaly, cyan = active/important, dimmed = secondary. Dense data readable because color guides the eye. Apply to compliance status, pattern severity, verification results. |
+| **btop** | https://github.com/aristocratos/btop | Multi-panel bordered layout, themability. Proves color themes can coexist with professional utility. Lipgloss makes theming trivial — colors are variables, not hardcoded. Keep in mind for future Virgil theme support. |
+| **Bagels** | https://github.com/EnhancedJax/Bagels | Active panel signaling via single accent color on the active border only. Tab bar at top + help bar at bottom pattern. Orange/purple palette — shows non-standard colors work well in serious financial tooling. |
+| **Posting** | https://github.com/darrenburns/posting | Three-panel layout (sidebar + editor + response). Tab bar within panels. Status badges with semantic color (green = 200 OK, red = error). Autocomplete dropdown via lipgloss overlay. |
+| **Superfile** | https://github.com/yorukot/superfile | Multi-panel file manager in Go. Pink/magenta active panel border, cyan for folders, icon-based file type color coding. Shows how to handle multiple simultaneous panels without visual clutter. |
+
+**Recurring patterns across all six references (apply to Virgil):**
+- Bordered panels via `lipgloss.Border()` to separate concerns visually
+- Single accent color signals the active panel/tab — not multiple competing colors
+- Persistent help bar at the bottom in the same format every time
+- Color encodes semantic meaning: status, severity, active/inactive state
+- Tabs built directly with lipgloss — no separate component needed
 
 ### Important API Notes (bubbletea v2)
 
@@ -111,7 +133,35 @@ Read `MEMORY.md` for **EVERY** session.
 - `KeyPressMsg` replaces v1's `KeyMsg`
 - `tea.WindowSizeMsg` delivers terminal dimensions — use for responsive viewport sizing
 - `spinner.Tick` is the tick command (not `spinner.TickCmd`)
+- `spinner.TickMsg` is the message type to match in `Update()` when using spinner standalone
 - Cannot log to stdout in TUI mode — use `tea.LogToFile("debug.log", "debug")` + `tail -f debug.log`
+- Available spinner styles: `Line`, `Dot`, `MiniDot`, `Jump`, `Pulse`, `Points`, `Globe`, `Moon`, `Monkey`
+- Spinner colour set via `s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#7D56F4"))`
+- Plain/markdown mode spinner (future): run spinner in goroutine + `\r` carriage return trick — no bubbletea needed, keeps non-TUI path dependency-free
+
+### Animated Progress Bar API (bubbles v2)
+
+- Import: `charm.land/bubbles/v2/progress`
+- Init with: `progress.New(progress.WithDefaultBlend())` — smooth animated colour blend
+- `SetWidth(n int)` — call on `tea.WindowSizeMsg` to make it responsive; cap at `maxWidth = 80`
+- `IncrPercent(amount float64) tea.Cmd` — increment by a fraction (e.g. 0.25); returns a `tea.Cmd` to animate
+- `SetPercent(amount float64) tea.Cmd` — set absolute percentage; also returns animation `tea.Cmd`
+- `Percent() float64` — read current value; check `== 1.0` to know when done
+- `progress.FrameMsg` — must be handled in `Update()` and passed back to `m.progress.Update(msg)` to drive the animation frames
+- Tick pattern: use `tea.Tick(interval, func(t time.Time) tea.Msg { return tickMsg(t) })` to drive progress updates
+- Use case in Virgil: drive progress bar from a `ProgressFunc` callback on `BashAnalyzer` (and future language analyzers) during directory scan mode — one tick per file processed
+
+### charmbracelet/log
+
+- **Repo:** https://github.com/charmbracelet/log
+- **Import path:** `github.com/charmbracelet/log` (latest release v2.0.0 via `charm.land/log` still at v0.4.2 — use the GitHub import path)
+- **What it is:** Minimal, colorful, leveled structured logger built on lipgloss — a direct drop-in replacement for the standard `log` package
+- **Levels:** `Debug`, `Info`, `Warn`, `Error`, `Fatal`, `Print` (level-independent)
+- **Formatters:** `TextFormatter` (default, colorful), `JSONFormatter`, `LogfmtFormatter`
+- **Key features:** Structured key/value pairs, sub-loggers via `With()`, caller reporting, timestamp formatting, slog handler, standard log adapter
+- **Styles:** Fully customizable via lipgloss — `log.DefaultStyles()` returns editable styles per level and per key/value
+- **TUI note:** In `--tui` mode, cannot write to stdout — use `log.New(file)` to redirect to a file, consistent with `tea.LogToFile()` pattern
+- **Use case in Virgil:** Replace all `log.Fatalf` / `fmt.Printf` debug output with charm/log for consistent, colored, leveled output across both plain and TUI modes. Especially useful for `virgil` main binary where structured logging matters for audit trails.
 
 ### Next Session Tasks
 
