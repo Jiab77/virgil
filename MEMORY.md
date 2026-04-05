@@ -72,6 +72,55 @@ Read `MEMORY.md` for **EVERY** session.
 
 ---
 
+> ## Session 13 (2026-04-05): TUI & Markdown rendering implemented in virgil-learn
+
+### Accomplishments
+
+**Added two independent, composable flags to `virgil-learn`:**
+
+- `--markdown` / `--md` — renders output through Glamour (`charm.land/glamour/v2`) for ANSI-styled terminal output. Fully standalone, no bubbletea dependency. Falls back to plain text on glamour errors.
+- `--tui` — wraps the program in a bubbletea `tea.Program` with a spinner during analysis and a scrollable viewport for results. Uses `charm.land/bubbletea/v2`, `charm.land/bubbles/v2`, `charm.land/lipgloss/v2`.
+- Both flags are orthogonal: `--tui --markdown` together gives Glamour-rendered content inside the viewport.
+- Default output is byte-for-byte unchanged — zero regression.
+
+**New files created:**
+- `cmd/virgil-learn/renderer.go` — `renderPlainText()`, `renderMarkdown()`, `terminalWidth()`, `sortedKeys()` generic helper
+- `cmd/virgil-learn/tui.go` — full bubbletea model (`tuiModel`), `Init()`, `Update()`, `View()`, `runTUI()`, `groupPatterns()`
+
+**Dependencies added to `go.mod`:**
+- `charm.land/glamour/v2 v2.0.0`
+- `charm.land/bubbletea/v2 v2.0.2`
+- `charm.land/bubbles/v2 v2.1.0`
+- `charm.land/lipgloss/v2 v2.0.2`
+
+### Key Design Decisions Made This Session
+
+- `--tui` is explicit opt-in (not default), preserving all existing CLI behaviour
+- `--markdown` works without `--tui` — glamour is a pure string-in/string-out renderer
+- TUI runs its own `AnalyzeCodebase()` internally via a `tea.Cmd` goroutine — does not reuse the plain-mode analysis path
+- Progress bar deferred: spinner used for both single-file and directory modes in TUI until `ProgressFunc` callback is added to `BashAnalyzer`
+- Tabs for the main `virgil` binary flagged as a future item pending `--tui` validation
+- Lipgloss brand colour for virgil: `#7D56F4`
+
+### Important API Notes (bubbletea v2)
+
+- `View()` returns `tea.View`, not `string` — use `tea.NewView(content)`
+- `KeyPressMsg` replaces v1's `KeyMsg`
+- `tea.WindowSizeMsg` delivers terminal dimensions — use for responsive viewport sizing
+- `spinner.Tick` is the tick command (not `spinner.TickCmd`)
+- Cannot log to stdout in TUI mode — use `tea.LogToFile("debug.log", "debug")` + `tail -f debug.log`
+
+### Next Session Tasks
+
+1. Run `go mod tidy` to resolve `go.sum` (dependencies added manually to `go.mod`)
+2. Test `--markdown` mode against a real Bash script
+3. Test `--tui` mode and validate spinner → viewport transition
+4. Test `--tui --markdown` combined
+5. If TUI is solid: design the progress bar callback (`ProgressFunc`) for directory scan mode
+6. Future: tabs for `virgil` main binary
+
+---
+
 > ## Session 13 (2026-04-04): Start (bubbletea/bubbles added to review list)
 
 ### Libraries Under Review

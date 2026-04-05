@@ -12,13 +12,22 @@ import (
 )
 
 func main() {
+	markdownFlag := flag.Bool("markdown", false, "Render output as markdown via Glamour")
+	mdFlag       := flag.Bool("md", false, "Alias for --markdown")
+	tuiFlag      := flag.Bool("tui", false, "Enable interactive TUI mode (spinner + scrollable viewport)")
 	flag.Parse()
 	args := flag.Args()
 
+	useMarkdown := *markdownFlag || *mdFlag
+	useTUI      := *tuiFlag
+
 	if len(args) < 1 {
-		fmt.Println("Usage: virgil-learn <codebase-path>")
-		fmt.Println("\nExample:")
+		fmt.Println("Usage: virgil-learn [--tui] [--markdown|--md] <codebase-path>")
+		fmt.Println("\nExamples:")
 		fmt.Println("  virgil-learn /path/to/bash/scripts")
+		fmt.Println("  virgil-learn --markdown /path/to/bash/scripts")
+		fmt.Println("  virgil-learn --tui /path/to/bash/scripts")
+		fmt.Println("  virgil-learn --tui --markdown /path/to/bash/scripts")
 		os.Exit(1)
 	}
 
@@ -30,7 +39,15 @@ func main() {
 		log.Fatalf("Error: codebase path not found: %v", err)
 	}
 
-	// Display what we're analyzing
+	// TUI mode: hand off to bubbletea immediately; it runs its own analysis internally.
+	if useTUI {
+		if err := runTUI(codebasePath, useMarkdown); err != nil {
+			log.Fatalf("TUI error: %v", err)
+		}
+		return
+	}
+
+	// Plain / markdown mode: print header, run analysis, render output.
 	if info.IsDir() {
 		fmt.Printf("\n[virgil-learn] Analyzing Bash scripts in: %s\n", codebasePath)
 	} else {
@@ -63,85 +80,15 @@ func main() {
 	}
 	sort.Strings(sortedFiles)
 
-	// Display results grouped by file
-	fmt.Printf("\n[RESULTS] Detected %d total patterns across %d files\n\n", len(patterns), len(patternsByFile))
-
-	// Aggregate all pattern types for summary
-	allPatternTypes := make(map[string]int)
-
-	for _, filePath := range sortedFiles {
-		filePatterns := patternsByFile[filePath]
-		fmt.Printf("%s:\n", filePath)
-
-		// Group by pattern type within this file
-		patternsByType := make(map[string][]learning.CodePattern)
-		for _, pattern := range filePatterns {
-			typeStr := string(pattern.Type)
-			patternsByType[typeStr] = append(patternsByType[typeStr], pattern)
-			allPatternTypes[typeStr]++ // Aggregate for summary
-		}
-
-		// Sort types for consistent output
-		var sortedTypes []string
-		for typeStr := range patternsByType {
-			sortedTypes = append(sortedTypes, typeStr)
-		}
-		sort.Strings(sortedTypes)
-
-		// Display patterns for this file
-		for _, typeStr := range sortedTypes {
-			typePatterns := patternsByType[typeStr]
-			for _, p := range typePatterns {
-				fmt.Printf("  [%s] %s: %d occurrence(s)\n", typeStr, p.Name, p.Frequency)
-				if p.Present && len(p.LineNumbers) > 0 {
-					fmt.Printf("    Lines: %v\n", p.LineNumbers)
-				}
-			}
-		}
-		fmt.Println()
+	// Route to the appropriate renderer
+	var output string
+	if useMarkdown {
+		output = renderMarkdown(codebasePath, patterns, patternsByFile, sortedFiles)
+	} else {
+		output = renderPlainText(codebasePath, patterns, patternsByFile, sortedFiles)
 	}
 
-	// Summary
-	fmt.Println(strings.Repeat("=", 80))
-	fmt.Println("\n[SUMMARY]")
-	fmt.Printf("Total patterns detected: %d\n", len(patterns))
-
-	// Count by type
-	fmt.Println("\nPattern Breakdown:")
-	var sortedTypeNames []string
-	for typeStr := range allPatternTypes {
-		sortedTypeNames = append(sortedTypeNames, typeStr)
-	}
-	sort.Strings(sortedTypeNames)
-
-	for _, typeStr := range sortedTypeNames {
-		count := allPatternTypes[typeStr]
-		fmt.Printf("  %s: %d pattern(s)\n", typeStr, count)
-	}
-
-	// Check for critical Phase 2 patterns
-	fmt.Println("\n[PHASE 2 PATTERNS - Systems Engineering Validation]")
-	phase2Patterns := map[string]bool{
-		"configuration_center":    false,
-		"defensive_prevalidation": false,
-		"operation_validation":    false,
-	}
-
-	for _, typeStr := range sortedTypeNames {
-		if _, exists := phase2Patterns[typeStr]; exists {
-			phase2Patterns[typeStr] = true
-		}
-	}
-
-	for patternName, found := range phase2Patterns {
-		status := "✗ NOT DETECTED"
-		if found {
-			status = "✓ DETECTED"
-		}
-		fmt.Printf("  %s: %s\n", patternName, status)
-	}
-
-	fmt.Println("\n" + strings.Repeat("=", 80) + "\n")
+	fmt.Print(output)
 }
 
 func minInt(a, b int) int {
