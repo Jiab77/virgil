@@ -2,12 +2,10 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 
 	"charm.land/glamour/v2"
-	"golang.org/x/term"
 
 	"github.com/jiab77/virgil/pkg/virgil/learning"
 )
@@ -171,31 +169,13 @@ func renderMarkdown(
 	sb.WriteString("\n")
 
 	// Render through glamour
-	width := terminalWidth()
-	renderer, err := glamour.NewTermRenderer(
-		glamour.WithAutoStyle(),
-		glamour.WithWordWrap(width),
-	)
+	out, err := glamour.Render(sb.String(), "dark")
 	if err != nil {
-		// Fall back to plain text if glamour fails to initialise
-		return renderPlainText(codebasePath, patterns, patternsByFile, sortedFiles)
-	}
-
-	out, err := renderer.Render(sb.String())
-	if err != nil {
+		// Fall back to plain text if glamour fails to render
 		return renderPlainText(codebasePath, patterns, patternsByFile, sortedFiles)
 	}
 
 	return out
-}
-
-// terminalWidth returns the current terminal width, falling back to 80.
-func terminalWidth() int {
-	width, _, err := term.GetSize(int(os.Stdout.Fd()))
-	if err != nil || width <= 0 {
-		return 80
-	}
-	return width
 }
 
 // sortedKeys returns the sorted keys of a map[string]T.
