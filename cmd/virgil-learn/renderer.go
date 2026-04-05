@@ -92,6 +92,14 @@ func renderPlainText(
 	}
 
 	sb.WriteString("\n" + strings.Repeat("=", 80) + "\n")
+
+	// Append the language-agnostic learning report
+	report := learning.GenerateReport(codebasePath, "bash", patternsByFile)
+	if report != "" {
+		sb.WriteString("\n[LEARNING REPORT]\n\n")
+		sb.WriteString(report)
+	}
+
 	return sb.String()
 }
 
@@ -183,6 +191,14 @@ func renderMarkdown(
 		}
 	}
 	sb.WriteString("\n")
+
+	// Append the language-agnostic learning report
+	report := learning.GenerateReport(codebasePath, "bash", patternsByFile)
+	if report != "" {
+		sb.WriteString("---\n\n")
+		sb.WriteString("# Learning Report\n\n")
+		sb.WriteString(report)
+	}
 
 	// Render through glamour
 	out, err := glamour.Render(sb.String(), "dark")
