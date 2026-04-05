@@ -408,6 +408,9 @@ func detectDefensivePrevalidation(text string, lines []string) (int, []int) {
 		"command -v", "which ", "type ",
 		// Numeric/string comparisons used as guards
 		"[ -s", "[[ -s",
+		// Error safety options — set -e/set -u/set -o pipefail signal deliberate safety intent.
+		// These are pre-validation at the script level: the script refuses to run unsafely.
+		"set -e", "set -u", "set -o", "set -E",
 	}
 	// "exit" matches exit, exit 1, exit 127, etc.
 	// "return" matches return, return 1, return 5, etc.
@@ -423,6 +426,15 @@ func detectDefensivePrevalidation(text string, lines []string) (int, []int) {
 			}
 		}
 		if !hasCheck {
+			continue
+		}
+
+		// set -e / set -u / set -o pipefail are standalone safety declarations —
+		// no terminator needed, the intent is unambiguous.
+		trimmedLine := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmedLine, "set -") || strings.HasPrefix(trimmedLine, "set -o ") {
+			count++
+			lineNumbers = append(lineNumbers, i+1)
 			continue
 		}
 
@@ -465,8 +477,11 @@ func detectDefensivePrevalidation(text string, lines []string) (int, []int) {
 	return count, lineNumbers
 }
 
-// detectOperationValidation identifies exit code checking after operations
-// Looks for patterns like: if [[ $? -eq 0 ]], checking return values, etc.
+// detectOperationValidation identifies exit code checking after operations.
+// Looks for:
+//   - $? with comparison operators (-eq, -ne, -gt, -lt)
+//   - PIPESTATUS — the only reliable way to check individual pipeline exit codes
+//   - (( exitval > 0 )) arithmetic comparisons on captured exit codes
 func detectOperationValidation(text string, lines []string) (int, []int) {
 	count := 0
 	lineNumbers := make([]int, 0)
@@ -474,13 +489,33 @@ func detectOperationValidation(text string, lines []string) (int, []int) {
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
 
-		// Look for exit code checks
-		if strings.Contains(line, "$?") && (strings.Contains(line, "-eq") || strings.Contains(line, "-ne")) {
+		// $? with comparison operators
+		if strings.Contains(line, "$?") &&
+			(strings.Contains(line, "-eq") || strings.Contains(line, "-ne") ||
+				strings.Contains(line, "-gt") || strings.Contains(line, "-lt") ||
+				strings.Contains(line, "-ge") || strings.Contains(line, "-le")) {
 			count++
 			lineNumbers = append(lineNumbers, i+1)
+			continue
 		}
 
-		// Look for explicit return value checks
+		// PIPESTATUS — checking individual pipeline command exit codes
+		if strings.Contains(line, "PIPESTATUS") {
+			count++
+			lineNumbers = append(lineNumbers, i+1)
+			continue
+		}
+
+		// Arithmetic exit code check: (( exitval > 0 )) or (( $? != 0 ))
+		if strings.Contains(trimmed, "((") &&
+			(strings.Contains(line, "$?") || strings.Contains(line, "exitval") || strings.Contains(line, "exit_code")) &&
+			(strings.Contains(line, "> 0") || strings.Contains(line, "!= 0") || strings.Contains(line, "== 0")) {
+			count++
+			lineNumbers = append(lineNumbers, i+1)
+			continue
+		}
+
+		// Explicit if [ / if [[ return value checks
 		if (strings.Contains(trimmed, "if [") || strings.Contains(trimmed, "if [[")) &&
 			(strings.Contains(line, "-eq 0") || strings.Contains(line, "-ne 0")) {
 			count++
@@ -603,9 +638,19 @@ func detectStatePreservation(lines []string) (int, []int) {
 		}
 
 		// Form B: trap-based signal/exit handler
+		// ERR fires when any command returns non-zero — a strong defensive signal.
 		if strings.Contains(trimmed, "trap") &&
 			(strings.Contains(trimmed, "EXIT") || strings.Contains(trimmed, "TERM") ||
-				strings.Contains(trimmed, "INT") || strings.Contains(trimmed, "HUP")) {
+				strings.Contains(trimmed, "INT") || strings.Contains(trimmed, "HUP") ||
+				strings.Contains(trimmed, "ERR")) {
+			count++
+			lineNumbers = append(lineNumbers, i+1)
+			continue
+		}
+
+		// Form A extension: IFS save/restore — explicit field separator management
+		// IFS=$'\n', IFS=',', IFS=$IFS_SAVED, IFS=$OLDIFS all qualify
+		if strings.Contains(trimmed, "IFS=") && !strings.HasPrefix(trimmed, "#") {
 			count++
 			lineNumbers = append(lineNumbers, i+1)
 			continue
@@ -655,8 +700,13 @@ func detectStructuredOutput(lines []string) (int, []int) {
 		"[+]", "[-]", "[*]", "[!]",
 	}
 
-	// Style B: ANSI escape sequences — ground truth regardless of variable names
-	ansiSequences := []string{`\033[`, `\e[`, `\x1b[`}
+	// Style B: ANSI escape sequences — ground truth regardless of variable names.
+	// Covers all three quoting forms:
+	//   - \033[  octal escape (most common in scripts)
+	//   - \e[    shorthand escape (bash-specific)
+	//   - \x1b[  hex escape
+	//   - $'\033[' and $'\e[' ANSI-C quoting form (e.g. $'\033[0;31m')
+	ansiSequences := []string{`\033[`, `\e[`, `\x1b[`, `$'\033[`, `$'\e[`}
 
 	// Style C: named logging function definitions
 	loggingFuncNames := []string{
