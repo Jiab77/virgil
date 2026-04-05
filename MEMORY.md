@@ -32,6 +32,8 @@ This file carries forward lessons learned, project constraints, architectural de
 
 ## Your Development Rules (MUST NOT BE SKIPPED)
 
+0. **ALWAYS read the `/docs` folder before forming any opinion on scope, architecture, implementation details, or positioning.** The docs contain design decisions, intent, and architectural context that were agreed before any coding session. Forming conclusions without reading them first is a mistake — as demonstrated in Session 13 when a shallow comparison with Crush was made without reading `PROJECT_PLAN.md` and `LEARNING_MODE_INTENT.md`. Read the docs. Then think.
+
 1. EVERY shared constant goes in `/lib/constants.ext` - NO exceptions
 2. EVERY shared type/interface goes in `/lib/types.ext` - NO exceptions
 3. Component-specific props that only reference primitives (string, number, boolean) can stay in their component file
