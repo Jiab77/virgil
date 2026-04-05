@@ -111,7 +111,11 @@ Read `MEMORY.md` for **EVERY** session.
 - `KeyPressMsg` replaces v1's `KeyMsg`
 - `tea.WindowSizeMsg` delivers terminal dimensions — use for responsive viewport sizing
 - `spinner.Tick` is the tick command (not `spinner.TickCmd`)
+- `spinner.TickMsg` is the message type to match in `Update()` when using spinner standalone
 - Cannot log to stdout in TUI mode — use `tea.LogToFile("debug.log", "debug")` + `tail -f debug.log`
+- Available spinner styles: `Line`, `Dot`, `MiniDot`, `Jump`, `Pulse`, `Points`, `Globe`, `Moon`, `Monkey`
+- Spinner colour set via `s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#7D56F4"))`
+- Plain/markdown mode spinner (future): run spinner in goroutine + `\r` carriage return trick — no bubbletea needed, keeps non-TUI path dependency-free
 
 ### Next Session Tasks
 
