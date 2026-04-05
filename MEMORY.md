@@ -74,7 +74,7 @@ Read `MEMORY.md` for **EVERY** session.
 
 ---
 
-> ## Session 13 (2026-04-05): TUI & Markdown rendering implemented in virgil-learn
+> ## Session 14 (2026-04-05): TUI & Markdown rendering implemented in virgil-learn
 
 ### Accomplishments
 
@@ -101,9 +101,8 @@ Read `MEMORY.md` for **EVERY** session.
 - `--markdown` works without `--tui` — glamour is a pure string-in/string-out renderer
 - TUI runs its own `AnalyzeCodebase()` internally via a `tea.Cmd` goroutine — does not reuse the plain-mode analysis path
 - Progress bar deferred: spinner used for both single-file and directory modes in TUI until `ProgressFunc` callback is added to `BashAnalyzer`
-- Tabs for the main `virgil` binary flagged as a future item pending `--tui` validation
 - Lipgloss brand colour for virgil: `#7D56F4` (purple) — confirmed by user, do not change
-- **`virgil-learn` is the TUI test bed** — validate all TUI patterns here before applying to main `virgil` binary
+- **`virgil-learn` is the TUI + Learning mode test bed** — validate all TUI + Learning patterns here before applying to main `virgil` binary
 - **Design reference for main `virgil` binary TUI:** [Crush by Charmbracelet](https://github.com/charmbracelet/crush) — sidebar layout, section-based navigation (LSPs, MCPs, Modified Files, etc.), magenta/cyan palette, help bar at bottom with key/description pairs. Adapt the layout concept, not the colours (virgil keeps its own palette).
 
 ### Important API Notes (bubbletea v2)
@@ -125,7 +124,7 @@ Read `MEMORY.md` for **EVERY** session.
 
 ---
 
-> ## Session 13 (2026-04-04): Start (bubbletea/bubbles added to review list)
+## Session 13 (2026-04-04): Start (bubbletea/bubbles added to review list)
 
 ### Libraries Under Review
 
