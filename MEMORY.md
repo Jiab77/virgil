@@ -32,6 +32,8 @@ This file carries forward lessons learned, project constraints, architectural de
 
 ## Your Development Rules (MUST NOT BE SKIPPED)
 
+0. **ALWAYS read the `/docs` folder before forming any opinion on scope, architecture, implementation details, or positioning.** The docs contain design decisions, intent, and architectural context that were agreed before any coding session. Forming conclusions without reading them first is a mistake — as demonstrated in Session 13 when a shallow comparison with Crush was made without reading `PROJECT_PLAN.md` and `LEARNING_MODE_INTENT.md`. Read the docs. Then think.
+
 1. EVERY shared constant goes in `/lib/constants.ext` - NO exceptions
 2. EVERY shared type/interface goes in `/lib/types.ext` - NO exceptions
 3. Component-specific props that only reference primitives (string, number, boolean) can stay in their component file
@@ -72,7 +74,57 @@ Read `MEMORY.md` for **EVERY** session.
 
 ---
 
-> ## Session 13 (2026-04-04): Start (bubbletea/bubbles added to review list)
+> ## Session 14 (2026-04-05): TUI & Markdown rendering implemented in virgil-learn
+
+### Accomplishments
+
+**Added two independent, composable flags to `virgil-learn`:**
+
+- `--markdown` / `--md` — renders output through Glamour (`charm.land/glamour/v2`) for ANSI-styled terminal output. Fully standalone, no bubbletea dependency. Falls back to plain text on glamour errors.
+- `--tui` — wraps the program in a bubbletea `tea.Program` with a spinner during analysis and a scrollable viewport for results. Uses `charm.land/bubbletea/v2`, `charm.land/bubbles/v2`, `charm.land/lipgloss/v2`.
+- Both flags are orthogonal: `--tui --markdown` together gives Glamour-rendered content inside the viewport.
+- Default output is byte-for-byte unchanged — zero regression.
+
+**New files created:**
+- `cmd/virgil-learn/renderer.go` — `renderPlainText()`, `renderMarkdown()`, `terminalWidth()`, `sortedKeys()` generic helper
+- `cmd/virgil-learn/tui.go` — full bubbletea model (`tuiModel`), `Init()`, `Update()`, `View()`, `runTUI()`, `groupPatterns()`
+
+**Dependencies added to `go.mod`:**
+- `charm.land/glamour/v2 v2.0.0`
+- `charm.land/bubbletea/v2 v2.0.2`
+- `charm.land/bubbles/v2 v2.1.0`
+- `charm.land/lipgloss/v2 v2.0.2`
+
+### Key Design Decisions Made This Session
+
+- `--tui` is explicit opt-in (not default), preserving all existing CLI behaviour
+- `--markdown` works without `--tui` — glamour is a pure string-in/string-out renderer
+- TUI runs its own `AnalyzeCodebase()` internally via a `tea.Cmd` goroutine — does not reuse the plain-mode analysis path
+- Progress bar deferred: spinner used for both single-file and directory modes in TUI until `ProgressFunc` callback is added to `BashAnalyzer`
+- Lipgloss brand colour for virgil: `#7D56F4` (purple) — confirmed by user, do not change
+- **`virgil-learn` is the TUI + Learning mode test bed** — validate all TUI + Learning patterns here before applying to main `virgil` binary
+- **Design reference for main `virgil` binary TUI:** [Crush by Charmbracelet](https://github.com/charmbracelet/crush) — sidebar layout, section-based navigation (LSPs, MCPs, Modified Files, etc.), magenta/cyan palette, help bar at bottom with key/description pairs. Adapt the layout concept, not the colours (virgil keeps its own palette).
+
+### Important API Notes (bubbletea v2)
+
+- `View()` returns `tea.View`, not `string` — use `tea.NewView(content)`
+- `KeyPressMsg` replaces v1's `KeyMsg`
+- `tea.WindowSizeMsg` delivers terminal dimensions — use for responsive viewport sizing
+- `spinner.Tick` is the tick command (not `spinner.TickCmd`)
+- Cannot log to stdout in TUI mode — use `tea.LogToFile("debug.log", "debug")` + `tail -f debug.log`
+
+### Next Session Tasks
+
+1. Run `go mod tidy` to resolve `go.sum` (dependencies added manually to `go.mod`)
+2. Test `--markdown` mode against a real Bash script
+3. Test `--tui` mode and validate spinner → viewport transition
+4. Test `--tui --markdown` combined
+5. If TUI is solid: design the progress bar callback (`ProgressFunc`) for directory scan mode
+6. Future: tabs for `virgil` main binary
+
+---
+
+## Session 13 (2026-04-04): Start (bubbletea/bubbles added to review list)
 
 ### Libraries Under Review
 

@@ -1,57 +1,99 @@
 # virgil-learn CLI Tool
 
-A command-line tool to analyze Bash codebases and extract systems engineering patterns.
+A command-line tool to analyze codebases and extract systems engineering patterns.
+Currently supports Bash. Additional language analyzers are planned (Go, Python, JavaScript, Rust, C/C++, Ruby, PHP, Perl, ASM).
 
 ## Building
 
-```bash
-cd cmd/virgil-learn
-go build -o virgil-learn
-```
+From the project root:
 
-Or from project root:
 ```bash
 go build -o bin/virgil-learn ./cmd/virgil-learn
 ```
 
-## Usage
+Or from this directory:
 
 ```bash
-./virgil-learn /path/to/bash/scripts
+go build -o virgil-learn .
 ```
 
-## Example
+## Usage
 
-If you have your 9 production Bash scripts in `/home/user/scripts/bash`:
+```
+virgil-learn [flags] <path>
+```
+
+`<path>` can be a single file or a directory. When a directory is provided, all supported files are analyzed recursively.
+
+### Flags
+
+| Flag | Alias | Description |
+|---|---|---|
+| `--markdown` | `--md` | Render output through Glamour for ANSI-styled terminal output |
+| `--tui` | — | Enable interactive TUI mode (spinner during analysis + scrollable viewport for results) |
+
+All flags are independent and composable. The default output (no flags) is plain text, identical to previous behaviour.
+
+## Examples
 
 ```bash
-./virgil-learn /home/user/scripts/bash
+# Plain text output (default — unchanged from previous behaviour)
+./virgil-learn /path/to/bash/scripts
+
+# Glamour markdown rendering (no TUI required)
+./virgil-learn --markdown /path/to/bash/scripts
+./virgil-learn --md /path/to/bash/scripts
+
+# Interactive TUI with spinner and scrollable viewport
+./virgil-learn --tui /path/to/bash/scripts
+
+# Interactive TUI with Glamour rendering inside the viewport
+./virgil-learn --tui --markdown /path/to/bash/scripts
 ```
 
 ## Output
 
-The tool will display:
-1. **Total patterns detected** - How many patterns were found
-2. **Pattern breakdown by type** - Each pattern type and frequency
-3. **Line numbers** - Where each pattern occurs (first 5 shown)
-4. **Phase 2 validation** - Which critical systems engineering patterns were detected
+All modes display the same data:
 
-## What to Look For
+1. **Results per file** - Each detected pattern, its frequency, and line numbers
+2. **Summary** - Total pattern count, breakdown by type, and Phase 2 systems engineering validation
 
-The tool checks for three critical Phase 2 patterns:
-- `configuration_center` - Centralized configuration at top of scripts
+### Phase 2 Systems Engineering Patterns
+
+The tool specifically validates three critical patterns:
+
+- `configuration_center` - Centralized configuration at the top of scripts
 - `defensive_prevalidation` - Validation checks before resource use
 - `operation_validation` - Exit code checking after operations
 
-If all three show `✓ DETECTED`, the analyzer is working correctly!
+If all three show `DETECTED`, the codebase follows the expected systems engineering conventions.
 
-## Important
+## Output Modes
 
-Make sure you update the import path in `main.go` to match your actual module name in `go.mod`.
+### Default (plain text)
+Standard formatted output written directly to stdout. Safe to pipe to other tools.
 
-Current import:
-```go
-"github.com/your-org/virgil/pkg/virgil/learning"
+```bash
+./virgil-learn /path/to/scripts | grep DETECTED
 ```
 
-Replace with your actual module path.
+### `--markdown` / `--md`
+Passes the output through [Glamour](https://github.com/charmbracelet/glamour) for ANSI-styled rendering in the terminal. Style is auto-detected from the terminal background. Degrades gracefully to plain text if Glamour encounters an error.
+
+### `--tui`
+Runs a full [Bubble Tea](https://github.com/charmbracelet/bubbletea) TUI:
+- Spinner displayed while analysis runs
+- Results rendered in a scrollable [Viewport](https://github.com/charmbracelet/bubbles)
+- Navigate with `j`/`k` or arrow keys
+- Quit with `q` or `ctrl+c`
+
+Combine with `--markdown` to render Glamour-styled content inside the viewport.
+
+## Dependencies
+
+| Package | Version | Purpose |
+|---|---|---|
+| `charm.land/glamour/v2` | v2.0.0 | Markdown rendering |
+| `charm.land/bubbletea/v2` | v2.0.2 | TUI framework |
+| `charm.land/bubbles/v2` | v2.1.0 | Spinner + Viewport components |
+| `charm.land/lipgloss/v2` | v2.0.2 | TUI styling |
