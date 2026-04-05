@@ -74,6 +74,70 @@ Read `MEMORY.md` for **EVERY** session.
 
 ---
 
+> ## Session 15 (2026-04-05): Bash Analyzer intent-first redesign + GenerateReport()
+
+### Context
+
+`virgil-learn` is a **standalone test bed binary** — its only purpose is to validate the learning and detection logic before it is wired into the full `virgil learn` pipeline. It deliberately does NOT communicate with the encrypted SQLite database. This is intentional. The full `virgil learn` command (via `learner.go` + `sqlite.go`) is where database persistence happens. Do not confuse the two paths or try to wire `virgil-learn` to the database.
+
+### Accomplishments
+
+**Intent-first redesign of `bash_analyzer.go`:**
+- Previous model built detectors from a single author's scripts — syntax-first, not intent-first. This created narrow detectors that failed on other authors' valid conventions.
+- Rewrote/extended all detectors to be intent-driven, validated against 8 scripts from 4 different authors: `cloak.sh`, `bincrypter.sh`, `updater.sh`, `bash_funcs`, `hackshell.sh`, `xmrig-remover.sh`, `ssh-key-backdoor.sh`, `start-xmrig.sh`, `dkms.in`.
+- Read the full Bash manual (`man1/bash.1.html`) to derive patterns from the spec, not from a single codebase.
+
+**Key detector improvements:**
+- `detectDefensivePrevalidation()`: added `command -v`, `which`, `type` (dependency checks), `set -e`/`set -u`/`set -o pipefail` (standalone safety declarations), and block form (`if/then/exit/fi`) alongside the existing `&& die` single-line form
+- `detectOperationValidation()`: added `PIPESTATUS`, arithmetic `(( $? != 0 ))`, all six comparison operators
+- `detectStatePreservation()`: added `local` (idiomatic Bash scoping), `readonly` (write protection), `IFS=` manipulation, `trap ... ERR` — not just `OLD_`/`SAVED_` workaround pattern and `EXIT/TERM/INT`
+- `detectStructuredOutput()`: three styles — bracket prefix `[+]/[-]`, ANSI escape sequences (`\033[`, `\e[`, `\x1b[`, `$'\033['`, `$'\e['`), and named logging function definitions (`warn()`, `error()`, `log()`, etc.)
+- `detectConfigurationCenter()`: relaxed from first-third to first-half of file, no longer stops at `if [[ -t 1 ]]` TTY guard blocks, accepts `_prefixed_lowercase` and `snake_case` in addition to `UPPERCASE`
+- `detectAdaptability()`: added Style C — env var override pattern (`VAR=${VAR:-}`) used by `hackshell.sh`
+- All Phase 1 patterns now set `Present: true` — fixes the renderer bug where line numbers were silently dropped
+- `terminators` simplified to `["exit", "die", "return"]` — covers all exit codes without being overly specific
+
+**Output layer fixes in `renderer.go`:**
+- Removed `p.Present &&` condition from line number display — Phase 1 patterns now show line numbers
+- Phase 2 validation section now shows per-file detection list with file counts, not just DETECTED/NOT DETECTED
+
+**`GenerateReport()` added to `helpers.go`:**
+- Language-agnostic — operates on `map[string][]CodePattern` and `PatternType` only
+- Four sections: Codebase Profile Summary (synthesized sentence for LLM consumption), Pattern Density table (% coverage per pattern), Co-occurrence Matrix (patterns that appear together — teaches generation model to produce them as a set), Gaps (Nine Patterns absent from codebase)
+- Called by both `renderPlainText()` and `renderMarkdown()` in `renderer.go`
+- Any future language analyzer (Python, Go) gets this report for free — DRY, KISS
+
+### Key Architecture Clarification
+
+```
+virgil-learn (test bed)
+  └── bash_analyzer.go → renderer.go → terminal output
+      No database. No learner.go. Intentional.
+
+virgil learn (full pipeline) ← NOT YET IMPLEMENTED
+  └── learner.go → sqlite.go → encrypted database
+      Will call GenerateReport() and store via SaveLearnedReport() (future)
+```
+
+The database storage gap (`storePatternProfiles()` logs but does not persist, `SaveLearnedReport()` does not exist yet) is a **known, planned gap** — not a bug. It belongs to the `virgil learn` implementation phase, not `virgil-learn`.
+
+### Lesson Learned: Use Diverse Test Sources
+
+When building pattern detectors, always validate against scripts from multiple unrelated authors. Single-author test bases produce narrow detectors that learn conventions, not intent. The eight scripts used this session covered: different naming conventions, different termination styles, different output conventions, different config patterns, different script sizes and purposes.
+
+### Lesson Learned: Read the Manual First
+
+The Bash manual (`man bash`) is the ground truth for what patterns are intentional language features vs author conventions. Reading it revealed: `set -euo pipefail`, `PIPESTATUS`, `readonly`, `local`, `trap ERR`, `IFS`, `declare -r` — all confirmed as first-class language features worth detecting. Future sessions should read language specs before designing detectors.
+
+### Next Session Tasks
+
+1. Build `virgil-learn` and run against a real Bash codebase to validate all detector changes
+2. Create the PR from `v0/jonathanbarda-6759-6023aff7`
+3. Plan `virgil learn` full pipeline implementation (learner.go → sqlite.go → SaveLearnedReport())
+4. Consider: Python analyzer using same intent-first approach + `GenerateReport()` for free
+
+---
+
 > ## Session 14 (2026-04-05): TUI & Markdown rendering implemented in virgil-learn
 
 ### Accomplishments
