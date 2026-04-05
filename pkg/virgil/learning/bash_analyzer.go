@@ -327,10 +327,12 @@ func detectConfigurationCenter(text string, lines []string) (int, []int) {
 			continue
 		}
 
-		// Stop at function definitions or compound commands — main logic has started
+		// Stop at function definitions or main loop constructs — main logic has started.
+		// NOTE: we allow simple guard-clause if blocks like `if [[ -t 1 ]]; then` that
+		// are commonly used to conditionally define color variables — do NOT stop on those.
+		// We only stop on for/while loops and function definitions which signal real logic.
 		if strings.HasPrefix(trimmed, "function ") ||
 			strings.Contains(trimmed, "() {") ||
-			strings.HasPrefix(trimmed, "if ") ||
 			strings.HasPrefix(trimmed, "for ") ||
 			strings.HasPrefix(trimmed, "while ") {
 			break
@@ -399,8 +401,13 @@ func detectDefensivePrevalidation(text string, lines []string) (int, []int) {
 	lineNumbers := make([]int, 0)
 
 	prevalidationChecks := []string{
+		// File/variable test operators
 		"[ -z", "[ -n", "[ -f", "[ -d", "[ -r", "[ -w", "[ -x", "[ -e",
 		"[[ -z", "[[ -n", "[[ -f", "[[ -d", "[[ -r", "[[ -w", "[[ -x", "[[ -e",
+		// Dependency/binary checks — canonical pattern: command -v prog || die
+		"command -v", "which ", "type ",
+		// Numeric/string comparisons used as guards
+		"[ -s", "[[ -s",
 	}
 	// "exit" matches exit, exit 1, exit 127, etc.
 	// "return" matches return, return 1, return 5, etc.
@@ -594,7 +601,7 @@ func detectStatePreservation(lines []string) (int, []int) {
 }
 
 // detectStructuredOutput identifies consistent structured output patterns.
-// Detects two styles, both valid:
+// Detects three styles, all valid:
 //
 //   Style A (bracket prefix): echo "[+] success", echo "[-] failure"
 //     Common in CTF/hacker tools and security scripts.
@@ -603,6 +610,10 @@ func detectStatePreservation(lines []string) (int, []int) {
 //     The actual ANSI escape sequences are the ground truth — variable naming
 //     conventions (RED, CDR, BLUE, etc.) are irrelevant, only the escape code matters.
 //     Covers: \033[, \e[, \x1b[ and variable definitions containing those sequences.
+//
+//   Style C (named logging functions): warn(), error(), info(), debug(), notice()
+//     Functions like warn() in dkms.in that print "Warning: " / "Error: " without
+//     ANSI codes. Detection looks for function *definitions* using those names.
 func detectStructuredOutput(lines []string) (int, []int) {
 	count := 0
 	lineNumbers := make([]int, 0)
@@ -618,6 +629,16 @@ func detectStructuredOutput(lines []string) (int, []int) {
 
 	// Style B: ANSI escape sequences — ground truth regardless of variable names
 	ansiSequences := []string{`\033[`, `\e[`, `\x1b[`}
+
+	// Style C: named logging function definitions
+	loggingFuncNames := []string{
+		"warn()", "warning()", "error()", "err()", "fatal()",
+		"info()", "debug()", "notice()", "log()", "msg()",
+		"function warn ", "function warning ", "function error ",
+		"function err ", "function info ", "function debug ",
+		"function notice ", "function log ", "function msg ",
+		"function die ",
+	}
 
 	for i, line := range lines {
 		matched := false
@@ -637,6 +658,17 @@ func detectStructuredOutput(lines []string) (int, []int) {
 		if !matched {
 			for _, seq := range ansiSequences {
 				if strings.Contains(line, seq) {
+					matched = true
+					break
+				}
+			}
+		}
+
+		// Style C: named logging function definition
+		if !matched {
+			trimmed := strings.TrimSpace(line)
+			for _, fn := range loggingFuncNames {
+				if strings.Contains(trimmed, fn) {
 					matched = true
 					break
 				}
@@ -691,13 +723,20 @@ func detectPureFunction(lines []string) (int, []int) {
 }
 
 // detectAdaptability identifies parameterized behaviour patterns.
-// Looks for: ${VAR:-default} parameter expansion, getopts, or case-based CLI parsing.
+// Detects three styles:
+//
+//   Style A: ${VAR:-default} or ${VAR:=default} parameter expansion
+//   Style B: getopts or case-based CLI flag parsing
+//   Style C: Optional env var overrides — VAR=${VAR:-value} or bare VAR=${VAR} at top-level
+//            Used by scripts like hackshell.sh: XHOME=, QUIET=, FORCE= as env toggles.
 func detectAdaptability(lines []string) (int, []int) {
 	count := 0
 	lineNumbers := make([]int, 0)
 
 	for i, line := range lines {
-		// ${VAR:-default} or ${VAR:=default} parameter expansion
+		trimmed := strings.TrimSpace(line)
+
+		// Style A: ${VAR:-default} or ${VAR:=default} parameter expansion
 		if strings.Contains(line, ":-") || strings.Contains(line, ":=") {
 			if strings.Contains(line, "${") {
 				count++
@@ -705,19 +744,32 @@ func detectAdaptability(lines []string) (int, []int) {
 				continue
 			}
 		}
-		// getopts-based CLI argument parsing
+
+		// Style B: getopts-based CLI argument parsing
 		if strings.Contains(line, "getopts") {
 			count++
 			lineNumbers = append(lineNumbers, i+1)
 			continue
 		}
-		// case-based CLI flag parsing (case "$1" or case "${1}")
-		trimmed := strings.TrimSpace(line)
+
+		// Style B: case-based CLI flag parsing (case "$1", "$ARG", or "$flag")
 		if strings.HasPrefix(trimmed, "case") &&
 			(strings.Contains(line, `"$1"`) || strings.Contains(line, `"${1}"`) ||
-				strings.Contains(line, "$1)") || strings.Contains(line, "${ARG}")) {
+				strings.Contains(line, "$1)") || strings.Contains(line, "${ARG}") ||
+				strings.Contains(line, `"$flag"`) || strings.Contains(line, `"$opt"`)) {
 			count++
 			lineNumbers = append(lineNumbers, i+1)
+			continue
+		}
+
+		// Style C: optional env var override pattern — VAR=${VAR:-...} or VAR="${VAR:+...}"
+		// Also catches: QUIET=${QUIET} or FORCE=${FORCE:-} as env toggle declarations
+		if strings.Contains(trimmed, "=${") && !strings.HasPrefix(trimmed, "#") {
+			// Must be a top-level assignment, not inside a function body
+			if isConfigVariable(trimmed) {
+				count++
+				lineNumbers = append(lineNumbers, i+1)
+			}
 		}
 	}
 
