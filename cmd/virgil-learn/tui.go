@@ -15,10 +15,16 @@ import (
 // Lipgloss styles
 // ----------------------------------------------------------------------------
 
+// Colour palette aligned with Glamour's dark theme:
+//   #2AA198  teal   — primary accent (headings, brand label)
+//   #859900  green  — secondary accent (file paths, detected status)
+//   #FDF6E3  cream  — body / header text
+//   #FF5F5F  red    — errors
 var (
-	virgil  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#7D56F4"))
-	header  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FFFFFF"))
-	help    = lipgloss.NewStyle().Faint(true)
+	virgil   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#2AA198"))
+	header   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FDF6E3"))
+	filePath = lipgloss.NewStyle().Foreground(lipgloss.Color("#859900"))
+	help     = lipgloss.NewStyle().Faint(true)
 	errStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FF5F5F"))
 )
 
@@ -181,7 +187,8 @@ func (m tuiModel) View() tea.View {
 
 	case stateReady:
 		titleBar := virgil.Render(" virgil-learn ") +
-			header.Render("— Analysis Results")
+			header.Render("— ") +
+			filePath.Render(m.codebasePath)
 		helpBar := help.Render("  j/k / arrows scroll  · q quit")
 
 		return tea.NewView(
