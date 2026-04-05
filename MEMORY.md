@@ -129,6 +129,18 @@ Read `MEMORY.md` for **EVERY** session.
 - Tick pattern: use `tea.Tick(interval, func(t time.Time) tea.Msg { return tickMsg(t) })` to drive progress updates
 - Use case in Virgil: drive progress bar from a `ProgressFunc` callback on `BashAnalyzer` (and future language analyzers) during directory scan mode — one tick per file processed
 
+### charmbracelet/log
+
+- **Repo:** https://github.com/charmbracelet/log
+- **Import path:** `github.com/charmbracelet/log` (latest release v2.0.0 via `charm.land/log` still at v0.4.2 — use the GitHub import path)
+- **What it is:** Minimal, colorful, leveled structured logger built on lipgloss — a direct drop-in replacement for the standard `log` package
+- **Levels:** `Debug`, `Info`, `Warn`, `Error`, `Fatal`, `Print` (level-independent)
+- **Formatters:** `TextFormatter` (default, colorful), `JSONFormatter`, `LogfmtFormatter`
+- **Key features:** Structured key/value pairs, sub-loggers via `With()`, caller reporting, timestamp formatting, slog handler, standard log adapter
+- **Styles:** Fully customizable via lipgloss — `log.DefaultStyles()` returns editable styles per level and per key/value
+- **TUI note:** In `--tui` mode, cannot write to stdout — use `log.New(file)` to redirect to a file, consistent with `tea.LogToFile()` pattern
+- **Use case in Virgil:** Replace all `log.Fatalf` / `fmt.Printf` debug output with charm/log for consistent, colored, leveled output across both plain and TUI modes. Especially useful for `virgil` main binary where structured logging matters for audit trails.
+
 ### Next Session Tasks
 
 1. Run `go mod tidy` to resolve `go.sum` (dependencies added manually to `go.mod`)
