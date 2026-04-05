@@ -376,7 +376,10 @@ func detectDefensivePrevalidation(text string, lines []string) (int, []int) {
 		"[ -z", "[ -n", "[ -f", "[ -d", "[ -r", "[ -w", "[ -x", "[ -e",
 		"[[ -z", "[[ -n", "[[ -f", "[[ -d", "[[ -r", "[[ -w", "[[ -x", "[[ -e",
 	}
-	terminators := []string{"exit", "die", "return 1", "return 2"}
+	// "exit" matches exit, exit 1, exit 127, etc.
+	// "return" matches return, return 1, return 5, etc.
+	// "die" matches the common custom helper function pattern
+	terminators := []string{"exit", "die", "return"}
 
 	for i, line := range lines {
 		hasCheck := false
@@ -493,8 +496,8 @@ func detectFallbackStrategy(lines []string) (int, []int) {
 
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
-		// Single-line: cmd || fallback_cmd
-		if strings.Contains(line, "||") && !strings.Contains(line, "exit") && !strings.Contains(line, "die") {
+		// Single-line: cmd || fallback_cmd — exclude termination patterns (those are defensive prevalidation)
+		if strings.Contains(line, "||") && !strings.Contains(line, "exit") && !strings.Contains(line, "die") && !strings.Contains(line, "return") {
 			if strings.Contains(line, "=") || strings.Contains(line, "$(") {
 				count++
 				lineNumbers = append(lineNumbers, i+1)
