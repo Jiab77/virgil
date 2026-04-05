@@ -182,6 +182,7 @@ func (ba *BashAnalyzer) analyzeSingleFile(filePath string) ([]CodePattern, Patte
 			Language:    "bash",
 			FilePath:    filePath,
 			Frequency:   count,
+			Present:     true,
 			LineNumbers: lineNumbers,
 		})
 	}
@@ -195,8 +196,99 @@ func (ba *BashAnalyzer) analyzeSingleFile(filePath string) ([]CodePattern, Patte
 			Language:    "bash",
 			FilePath:    filePath,
 			Frequency:   count,
+			Present:     true,
 			LineNumbers: lineNumbers,
 		})
+	}
+
+	// Intent-aware Phase 2 detectors (Nine Patterns from LEARNING_MODE_INTENT.md)
+	if count, lineNumbers := detectFallbackStrategy(lines); count > 0 {
+		patterns = append(patterns, CodePattern{
+			Type:        PatternTypeFallbackStrategy,
+			Name:        "fallback strategy",
+			Description: "Primary path fails, secondary path activated",
+			Example:     "if [[ $? -ne 0 ]]; then fallback_cmd; fi",
+			Language:    "bash",
+			FilePath:    filePath,
+			Frequency:   count,
+			Present:     true,
+			LineNumbers: lineNumbers,
+		})
+		profile.Detected[PatternTypeFallbackStrategy] = count
+	}
+
+	if count, lineNumbers := detectMultiPathConfigLoading(lines); count > 0 {
+		patterns = append(patterns, CodePattern{
+			Type:        PatternTypeConfigurationCenter,
+			Name:        "multi-path config loading",
+			Description: "Priority-ordered configuration file search",
+			Example:     "[[ -r ~/.config/app.conf ]] && CONFIG=~/.config/app.conf",
+			Language:    "bash",
+			FilePath:    filePath,
+			Frequency:   count,
+			Present:     true,
+			LineNumbers: lineNumbers,
+		})
+	}
+
+	if count, lineNumbers := detectStatePreservation(lines); count > 0 {
+		patterns = append(patterns, CodePattern{
+			Type:        PatternTypeStatePreservation,
+			Name:        "state preservation",
+			Description: "Original state saved before mutation, restored after",
+			Example:     "OLD_IFS=$IFS; IFS=','; ...; IFS=$OLD_IFS",
+			Language:    "bash",
+			FilePath:    filePath,
+			Frequency:   count,
+			Present:     true,
+			LineNumbers: lineNumbers,
+		})
+		profile.Detected[PatternTypeStatePreservation] = count
+	}
+
+	if count, lineNumbers := detectStructuredOutput(lines); count > 0 {
+		patterns = append(patterns, CodePattern{
+			Type:        PatternTypeStructuredOutput,
+			Name:        "structured output",
+			Description: "Consistent message prefix format for log levels",
+			Example:     "echo \"[+] success\" or echo \"[-] failure\"",
+			Language:    "bash",
+			FilePath:    filePath,
+			Frequency:   count,
+			Present:     true,
+			LineNumbers: lineNumbers,
+		})
+		profile.Detected[PatternTypeStructuredOutput] = count
+	}
+
+	if count, lineNumbers := detectPureFunction(lines); count > 0 {
+		patterns = append(patterns, CodePattern{
+			Type:        PatternTypePureFunction,
+			Name:        "pure function",
+			Description: "Function uses local vars only, no global side effects",
+			Example:     "function foo() { local x=$1; echo \"$x\"; }",
+			Language:    "bash",
+			FilePath:    filePath,
+			Frequency:   count,
+			Present:     true,
+			LineNumbers: lineNumbers,
+		})
+		profile.Detected[PatternTypePureFunction] = count
+	}
+
+	if count, lineNumbers := detectAdaptability(lines); count > 0 {
+		patterns = append(patterns, CodePattern{
+			Type:        PatternTypeAdaptability,
+			Name:        "adaptability",
+			Description: "Parameterized behaviour via defaults and CLI overrides",
+			Example:     "VAR=${VAR:-default}; getopts or case for CLI flags",
+			Language:    "bash",
+			FilePath:    filePath,
+			Frequency:   count,
+			Present:     true,
+			LineNumbers: lineNumbers,
+		})
+		profile.Detected[PatternTypeAdaptability] = count
 	}
 
 	return patterns, profile
@@ -263,39 +355,75 @@ func isConfigVariable(line string) bool {
 	return false
 }
 
-// detectDefensivePrevalidation identifies validation before resource use
-// Looks for checks like [[ -z $var ]], [ -f "$file" ], etc.
+// detectDefensivePrevalidation identifies validation before resource use.
+// Detects two forms, both of which must terminate execution on failure:
+//
+//  Form A (single-line): [[ -z $var ]] && die "message"
+//                        [[ -f "$file" ]] || exit 1
+//
+//  Form B (block):       if [[ -z "$var" ]]; then
+//                            echo "[ERROR] ..." >&2
+//                            exit 1          ← termination required
+//                        fi
+//
+// The key intent signal: unlike generic validation, defensive pre-validation
+// always terminates (exit, die, return 1) when the check fails.
 func detectDefensivePrevalidation(text string, lines []string) (int, []int) {
 	count := 0
 	lineNumbers := make([]int, 0)
-	prevalidationPatterns := []string{
-		"[ -z",
-		"[ -n",
-		"[ -f",
-		"[ -d",
-		"[ -r",
-		"[ -w",
-		"[ -x",
-		"[ -e",
-		"[[ -z",
-		"[[ -n",
-		"[[ -f",
-		"[[ -d",
-		"[[ -r",
-		"[[ -w",
-		"[[ -x",
-		"[[ -e",
+
+	prevalidationChecks := []string{
+		"[ -z", "[ -n", "[ -f", "[ -d", "[ -r", "[ -w", "[ -x", "[ -e",
+		"[[ -z", "[[ -n", "[[ -f", "[[ -d", "[[ -r", "[[ -w", "[[ -x", "[[ -e",
 	}
+	terminators := []string{"exit", "die", "return 1", "return 2"}
 
 	for i, line := range lines {
-		for _, pattern := range prevalidationPatterns {
-			if strings.Contains(line, pattern) && strings.Contains(line, "&&") && strings.Contains(line, "die") {
-				// Pattern: [[ -X $var ]] && die "message"
-				count++
-				lineNumbers = append(lineNumbers, i+1)
+		hasCheck := false
+		for _, pattern := range prevalidationChecks {
+			if strings.Contains(line, pattern) {
+				hasCheck = true
 				break
 			}
 		}
+		if !hasCheck {
+			continue
+		}
+
+		// Form A: single-line with && or || and a terminator
+		if strings.Contains(line, "&&") || strings.Contains(line, "||") {
+			for _, term := range terminators {
+				if strings.Contains(line, term) {
+					count++
+					lineNumbers = append(lineNumbers, i+1)
+					break
+				}
+			}
+			continue
+		}
+
+		// Form B: if/then block — look ahead up to 5 lines for a terminator before fi
+		if strings.Contains(strings.TrimSpace(line), "if ") {
+			lookAhead := i + 1
+			maxLook := i + 5
+			if maxLook > len(lines) {
+				maxLook = len(lines)
+			}
+			for j := lookAhead; j < maxLook; j++ {
+				trimmed := strings.TrimSpace(lines[j])
+				if trimmed == "fi" {
+					break
+				}
+				for _, term := range terminators {
+					if strings.Contains(trimmed, term) {
+						count++
+						lineNumbers = append(lineNumbers, i+1)
+						goto nextLine
+					}
+				}
+			}
+		}
+	nextLine:
 	}
 
 	return count, lineNumbers
@@ -349,6 +477,187 @@ func detectLogging(lines []string) (int, []int) {
 
 	for i, line := range lines {
 		if strings.Contains(line, "echo ") {
+			count++
+			lineNumbers = append(lineNumbers, i+1)
+		}
+	}
+
+	return count, lineNumbers
+}
+
+// detectFallbackStrategy identifies primary-fails-use-secondary patterns.
+// Looks for: check $? after a command and branch to an alternative.
+func detectFallbackStrategy(lines []string) (int, []int) {
+	count := 0
+	lineNumbers := make([]int, 0)
+
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		// Single-line: cmd || fallback_cmd
+		if strings.Contains(line, "||") && !strings.Contains(line, "exit") && !strings.Contains(line, "die") {
+			if strings.Contains(line, "=") || strings.Contains(line, "$(") {
+				count++
+				lineNumbers = append(lineNumbers, i+1)
+				continue
+			}
+		}
+		// Block form: if [[ $? -ne 0 ]]; then ... (alternative action, not exit)
+		if (strings.Contains(trimmed, "if") && strings.Contains(line, "$?")) ||
+			(strings.Contains(trimmed, "if") && strings.Contains(line, "-ne 0")) {
+			// Look ahead: must NOT immediately exit — must do something else
+			if i+1 < len(lines) {
+				next := strings.TrimSpace(lines[i+1])
+				if !strings.HasPrefix(next, "exit") && !strings.HasPrefix(next, "die") && next != "fi" {
+					count++
+					lineNumbers = append(lineNumbers, i+1)
+				}
+			}
+		}
+	}
+
+	return count, lineNumbers
+}
+
+// detectMultiPathConfigLoading identifies priority-ordered config file search chains.
+// Looks for: [[ -r path ]] && CONFIG=path or [[ -f path ]] && source path
+func detectMultiPathConfigLoading(lines []string) (int, []int) {
+	count := 0
+	lineNumbers := make([]int, 0)
+
+	for i, line := range lines {
+		if (strings.Contains(line, "[[ -r") || strings.Contains(line, "[[ -f") ||
+			strings.Contains(line, "[ -r") || strings.Contains(line, "[ -f")) &&
+			strings.Contains(line, "&&") &&
+			(strings.Contains(line, "CONFIG") || strings.Contains(line, "source") || strings.Contains(line, ".")) {
+			count++
+			lineNumbers = append(lineNumbers, i+1)
+		}
+	}
+
+	return count, lineNumbers
+}
+
+// detectStatePreservation identifies save-mutate-restore patterns.
+// Looks for: OLD_VAR=$VAR assignments or trap-based cleanup restores.
+func detectStatePreservation(lines []string) (int, []int) {
+	count := 0
+	lineNumbers := make([]int, 0)
+
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		// OLD_VAR=$VAR or SAVED_VAR=$VAR
+		if (strings.HasPrefix(trimmed, "OLD_") || strings.HasPrefix(trimmed, "SAVED_") ||
+			strings.HasPrefix(trimmed, "ORIG_") || strings.HasPrefix(trimmed, "PREV_")) &&
+			strings.Contains(trimmed, "=") {
+			count++
+			lineNumbers = append(lineNumbers, i+1)
+			continue
+		}
+		// trap ... EXIT/TERM/INT with restore logic
+		if strings.Contains(trimmed, "trap") &&
+			(strings.Contains(trimmed, "EXIT") || strings.Contains(trimmed, "TERM") || strings.Contains(trimmed, "INT")) {
+			count++
+			lineNumbers = append(lineNumbers, i+1)
+		}
+	}
+
+	return count, lineNumbers
+}
+
+// detectStructuredOutput identifies consistent message prefix format.
+// Looks for: [+], [-], [*], [!], [DEBUG], [INFO], [WARN], [ERROR] prefixes.
+func detectStructuredOutput(lines []string) (int, []int) {
+	count := 0
+	lineNumbers := make([]int, 0)
+
+	prefixes := []string{
+		`"[+]`, `"[-]`, `"[*]`, `"[!]`,
+		`"[DEBUG]`, `"[INFO]`, `"[WARN]`, `"[ERROR]`,
+		`'[+]`, `'[-]`, `'[*]`, `'[!]`,
+		`'[DEBUG]`, `'[INFO]`, `'[WARN]`, `'[ERROR]`,
+		"[+]", "[-]", "[*]", "[!]",
+	}
+
+	for i, line := range lines {
+		if !strings.Contains(line, "echo") {
+			continue
+		}
+		for _, prefix := range prefixes {
+			if strings.Contains(line, prefix) {
+				count++
+				lineNumbers = append(lineNumbers, i+1)
+				break
+			}
+		}
+	}
+
+	return count, lineNumbers
+}
+
+// detectPureFunction identifies functions that use only local variables.
+// A function is considered pure if it declares 'local' for its variables
+// and does not write to global vars or perform I/O side effects.
+func detectPureFunction(lines []string) (int, []int) {
+	count := 0
+	lineNumbers := make([]int, 0)
+
+	inFunction := false
+	functionStart := 0
+	hasLocal := false
+
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+
+		if strings.HasPrefix(trimmed, "function ") || strings.Contains(trimmed, "() {") {
+			inFunction = true
+			functionStart = i
+			hasLocal = false
+			continue
+		}
+
+		if inFunction {
+			if strings.HasPrefix(trimmed, "local ") {
+				hasLocal = true
+			}
+			if trimmed == "}" {
+				if hasLocal {
+					count++
+					lineNumbers = append(lineNumbers, functionStart+1)
+				}
+				inFunction = false
+			}
+		}
+	}
+
+	return count, lineNumbers
+}
+
+// detectAdaptability identifies parameterized behaviour patterns.
+// Looks for: ${VAR:-default} parameter expansion, getopts, or case-based CLI parsing.
+func detectAdaptability(lines []string) (int, []int) {
+	count := 0
+	lineNumbers := make([]int, 0)
+
+	for i, line := range lines {
+		// ${VAR:-default} or ${VAR:=default} parameter expansion
+		if strings.Contains(line, ":-") || strings.Contains(line, ":=") {
+			if strings.Contains(line, "${") {
+				count++
+				lineNumbers = append(lineNumbers, i+1)
+				continue
+			}
+		}
+		// getopts-based CLI argument parsing
+		if strings.Contains(line, "getopts") {
+			count++
+			lineNumbers = append(lineNumbers, i+1)
+			continue
+		}
+		// case-based CLI flag parsing (case "$1" or case "${1}")
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "case") &&
+			(strings.Contains(line, `"$1"`) || strings.Contains(line, `"${1}"`) ||
+				strings.Contains(line, "$1)") || strings.Contains(line, "${ARG}")) {
 			count++
 			lineNumbers = append(lineNumbers, i+1)
 		}
