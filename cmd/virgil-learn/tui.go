@@ -16,11 +16,42 @@ import (
 // ----------------------------------------------------------------------------
 
 var (
-	virgil   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#7D56F4"))
-	header   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FFFFFF"))
-	filePath = lipgloss.NewStyle().Foreground(lipgloss.Color("#7D56F4"))
-	help     = lipgloss.NewStyle().Faint(true)
-	errStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FF5F5F"))
+	purple = lipgloss.Color("#7D56F4")
+	white  = lipgloss.Color("#FFFFFF")
+	red    = lipgloss.Color("#FF5F5F")
+	dim    = lipgloss.Color("#555555")
+
+	brandStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(white).
+			Background(purple).
+			Padding(0, 1)
+
+	titleStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(purple)
+
+	pathStyle = lipgloss.NewStyle().
+			Foreground(white).
+			Faint(true)
+
+	borderStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(purple)
+
+	helpStyle = lipgloss.NewStyle().
+			Foreground(dim)
+
+	helpKeyStyle = lipgloss.NewStyle().
+			Foreground(purple).
+			Bold(true)
+
+	spinnerStyle = lipgloss.NewStyle().
+			Foreground(purple)
+
+	errStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(red)
 )
 
 // ----------------------------------------------------------------------------
@@ -65,6 +96,7 @@ type tuiModel struct {
 
 func initialModel(codebasePath string, useMarkdown bool) tuiModel {
 	sp := spinner.New(spinner.WithSpinner(spinner.Dot))
+	sp.Style = spinnerStyle
 	return tuiModel{
 		spinner:      sp,
 		codebasePath: codebasePath,
@@ -166,29 +198,58 @@ func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m tuiModel) View() tea.View {
 	switch m.state {
 	case stateErr:
-		return tea.NewView(
-			errStyle.Render(fmt.Sprintf("\n  Error: %v\n\n", m.err)) +
-				help.Render("  Press q to quit\n"),
-		)
+		errBox := borderStyle.
+			Width(60).
+			Render(
+				errStyle.Render("Error\n\n") +
+					fmt.Sprintf("%v", m.err),
+			)
+		quitHint := helpStyle.Render("  press ") +
+			helpKeyStyle.Render("q") +
+			helpStyle.Render(" to quit")
+
+		v := tea.NewView("\n" + errBox + "\n\n" + quitHint + "\n")
+		v.AltScreen = true
+		return v
 
 	case stateAnalyzing:
-		return tea.NewView(
-			"\n  " + virgil.Render("virgil-learn") + "  " +
-				m.spinner.View() +
-				header.Render(" Analyzing...") +
-				"\n\n" +
-				help.Render("  Press q to quit\n"),
+		brand := brandStyle.Render("virgil-learn")
+		scanning := titleStyle.Render(" scanning")
+		path := "  " + pathStyle.Render(m.codebasePath)
+		spin := "  " + m.spinner.View()
+
+		v := tea.NewView(
+			"\n" +
+				"  " + brand + scanning + "\n" +
+				path + "\n\n" +
+				spin + "\n",
 		)
+		v.AltScreen = true
+		return v
 
 	case stateReady:
-		titleBar := virgil.Render(" virgil-learn ") +
-			header.Render("— ") +
-			filePath.Render(m.codebasePath)
-		helpBar := help.Render("  j/k / arrows scroll  · q quit")
+		brand := brandStyle.Render("virgil-learn")
+		path := pathStyle.Render("  " + m.codebasePath)
+
+		titleBar := lipgloss.JoinHorizontal(
+			lipgloss.Left,
+			brand,
+			path,
+		)
+
+		vpBordered := borderStyle.
+			Width(m.width - 2).
+			Height(viewportHeight(m.height)).
+			Render(m.viewport.View())
+
+		helpBar := helpStyle.Render("  scroll ") +
+			helpKeyStyle.Render("j/k") +
+			helpStyle.Render("  quit ") +
+			helpKeyStyle.Render("q")
 
 		v := tea.NewView(
 			titleBar + "\n" +
-				m.viewport.View() + "\n" +
+				vpBordered + "\n" +
 				helpBar,
 		)
 		v.AltScreen = true
@@ -204,9 +265,10 @@ func (m tuiModel) View() tea.View {
 // Helpers
 // ----------------------------------------------------------------------------
 
-// viewportHeight reserves 3 lines for the title bar and help bar.
+// viewportHeight reserves lines for the title bar, help bar, and viewport border.
 func viewportHeight(totalHeight int) int {
-	reserved := 3
+	// 1 title bar + 1 help bar + 2 border lines = 4 reserved
+	reserved := 4
 	h := totalHeight - reserved
 	if h < 1 {
 		return 1
