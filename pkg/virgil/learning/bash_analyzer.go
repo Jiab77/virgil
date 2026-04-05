@@ -298,8 +298,8 @@ func (ba *BashAnalyzer) analyzeSingleFile(filePath string) ([]CodePattern, Patte
 // Looks for a cluster of variable assignments at or near the top of the file,
 // before main logic begins. Accepts all naming conventions:
 //   - UPPERCASE_WITH_UNDERSCORES (classic shell config)
-//   - _prefixed_lowercase (library/private convention, e.g. bincrypter.sh)
-//   - snake_case or mixed (e.g. updater.sh)
+//   - _prefixed_lowercase (library/private convention)
+//   - snake_case or mixed ()
 //   - ANSI color variable blocks (NC=, RED=, BLUE=, etc.)
 //
 // The "top of file" window is relaxed to the first half of the file to handle
