@@ -77,8 +77,8 @@ func initialModel(codebasePath string, useMarkdown bool) tuiModel {
 // Init
 // ----------------------------------------------------------------------------
 
-func (m tuiModel) Init() (tuiModel, tea.Cmd) {
-	return m, tea.Batch(
+func (m tuiModel) Init() tea.Cmd {
+	return tea.Batch(
 		m.spinner.Tick,
 		runAnalysis(m.codebasePath),
 	)
@@ -190,10 +190,10 @@ func (m tuiModel) View() tea.View {
 			titleBar + "\n" +
 				m.viewport.View() + "\n" +
 				helpBar,
-		)
+		).AltScreen(true)
 	}
 
-	return tea.NewView("")
+	return tea.NewView("").AltScreen(true)
 }
 
 // ----------------------------------------------------------------------------
@@ -223,7 +223,7 @@ func groupPatterns(patterns []learning.CodePattern) (map[string][]learning.CodeP
 // runTUI launches the bubbletea program for --tui mode.
 func runTUI(codebasePath string, useMarkdown bool) error {
 	m := initialModel(codebasePath, useMarkdown)
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	p := tea.NewProgram(m)
 	_, err := p.Run()
 	return err
 }
