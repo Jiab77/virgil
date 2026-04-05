@@ -43,7 +43,7 @@ func renderPlainText(
 			typePatterns := patternsByType[typeStr]
 			for _, p := range typePatterns {
 				sb.WriteString(fmt.Sprintf("  [%s] %s: %d occurrence(s)\n", typeStr, p.Name, p.Frequency))
-				if p.Present && len(p.LineNumbers) > 0 {
+				if len(p.LineNumbers) > 0 {
 					sb.WriteString(fmt.Sprintf("    Lines: %v\n", p.LineNumbers))
 				}
 			}
@@ -63,25 +63,43 @@ func renderPlainText(
 	}
 
 	sb.WriteString("\n[PHASE 2 PATTERNS - Systems Engineering Validation]\n")
-	phase2Patterns := map[string]bool{
-		"configuration_center":    false,
-		"defensive_prevalidation": false,
-		"operation_validation":    false,
+
+	// Build map: pattern type -> list of files that contain it
+	phase2Names := []string{"configuration_center", "defensive_prevalidation", "operation_validation"}
+	phase2Files := map[string][]string{
+		"configuration_center":    {},
+		"defensive_prevalidation": {},
+		"operation_validation":    {},
 	}
-	for _, typeStr := range sortedTypeNames {
-		if _, exists := phase2Patterns[typeStr]; exists {
-			phase2Patterns[typeStr] = true
+	for _, filePath := range sortedFiles {
+		for _, p := range patternsByFile[filePath] {
+			typeStr := string(p.Type)
+			if _, isPhase2 := phase2Files[typeStr]; isPhase2 {
+				phase2Files[typeStr] = append(phase2Files[typeStr], filePath)
+			}
 		}
 	}
-	for patternName, found := range phase2Patterns {
-		status := "x NOT DETECTED"
-		if found {
-			status = "v DETECTED"
+	for _, patternName := range phase2Names {
+		files := phase2Files[patternName]
+		if len(files) > 0 {
+			sb.WriteString(fmt.Sprintf("  v DETECTED   %s (%d file(s))\n", patternName, len(files)))
+			for _, f := range files {
+				sb.WriteString(fmt.Sprintf("      - %s\n", f))
+			}
+		} else {
+			sb.WriteString(fmt.Sprintf("  x NOT DETECTED  %s\n", patternName))
 		}
-		sb.WriteString(fmt.Sprintf("  %s: %s\n", patternName, status))
 	}
 
 	sb.WriteString("\n" + strings.Repeat("=", 80) + "\n")
+
+	// Append the language-agnostic learning report
+	report := learning.GenerateReport(codebasePath, "bash", patternsByFile)
+	if report != "" {
+		sb.WriteString("\n[LEARNING REPORT]\n\n")
+		sb.WriteString(report)
+	}
+
 	return sb.String()
 }
 
@@ -121,7 +139,7 @@ func renderMarkdown(
 			sb.WriteString(fmt.Sprintf("### %s\n\n", typeStr))
 			for _, p := range typePatterns {
 				sb.WriteString(fmt.Sprintf("- **%s** — %d occurrence(s)", p.Name, p.Frequency))
-				if p.Present && len(p.LineNumbers) > 0 {
+				if len(p.LineNumbers) > 0 {
 					lineStrs := make([]string, len(p.LineNumbers))
 					for i, ln := range p.LineNumbers {
 						lineStrs[i] = fmt.Sprintf("%d", ln)
@@ -145,28 +163,42 @@ func renderMarkdown(
 	}
 	sb.WriteString("\n")
 
-	// Phase 2 validation
-	sb.WriteString("### Phase 2 Patterns — Systems Engineering Validation\n\n")
-	phase2Patterns := map[string]bool{
-		"configuration_center":    false,
-		"defensive_prevalidation": false,
-		"operation_validation":    false,
-	}
-	for _, typeStr := range sortedTypeNames {
-		if _, exists := phase2Patterns[typeStr]; exists {
-			phase2Patterns[typeStr] = true
-		}
-	}
+	// Phase 2 validation — per-file breakdown
+	sb.WriteString("## Phase 2 Patterns — Systems Engineering Validation\n\n")
 	phase2Names := []string{"configuration_center", "defensive_prevalidation", "operation_validation"}
-	for _, patternName := range phase2Names {
-		found := phase2Patterns[patternName]
-		status := "NOT DETECTED"
-		if found {
-			status = "DETECTED"
+	phase2Files := map[string][]string{
+		"configuration_center":    {},
+		"defensive_prevalidation": {},
+		"operation_validation":    {},
+	}
+	for _, fp := range sortedFiles {
+		for _, p := range patternsByFile[fp] {
+			typeStr := string(p.Type)
+			if _, isPhase2 := phase2Files[typeStr]; isPhase2 {
+				phase2Files[typeStr] = append(phase2Files[typeStr], fp)
+			}
 		}
-		sb.WriteString(fmt.Sprintf("- `%s`: **%s**\n", patternName, status))
+	}
+	for _, patternName := range phase2Names {
+		files := phase2Files[patternName]
+		if len(files) > 0 {
+			sb.WriteString(fmt.Sprintf("- `%s`: **DETECTED** (%d file(s))\n", patternName, len(files)))
+			for _, f := range files {
+				sb.WriteString(fmt.Sprintf("  - `%s`\n", f))
+			}
+		} else {
+			sb.WriteString(fmt.Sprintf("- `%s`: **NOT DETECTED**\n", patternName))
+		}
 	}
 	sb.WriteString("\n")
+
+	// Append the language-agnostic learning report
+	report := learning.GenerateReport(codebasePath, "bash", patternsByFile)
+	if report != "" {
+		sb.WriteString("---\n\n")
+		sb.WriteString("# Learning Report\n\n")
+		sb.WriteString(report)
+	}
 
 	// Render through glamour
 	out, err := glamour.Render(sb.String(), "dark")

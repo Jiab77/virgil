@@ -470,7 +470,7 @@ A critical discovery: **All nine patterns appear identically across Bash, JavaSc
 
 ### Pattern 1: Configuration Center Pattern
 
-**Bash (start-xmrig.sh):**
+**Bash:**
 ```bash
 CLEAR_SCREEN=false
 LIMIT_ON_BATTERY=true
@@ -478,7 +478,7 @@ ENABLE_LOCAL_API=true
 MIN_BAT_LEVEL=20
 ```
 
-**JavaScript (app.js):**
+**JavaScript:**
 ```javascript
 const Options = {
   debug: true,
@@ -489,7 +489,7 @@ const Options = {
 };
 ```
 
-**PHP (server.php):**
+**PHP:**
 ```php
 $config = new StdClass;
 $config->debug = true;
@@ -503,7 +503,7 @@ $config->current_path = __DIR__;
 
 ### Pattern 2: Adaptability Pattern
 
-**Bash (start-xmrig.sh):**
+**Bash:**
 ```bash
 while [[ $# -ne 0 ]]; do
   case $1 in
@@ -513,7 +513,7 @@ while [[ $# -ne 0 ]]; do
 done
 ```
 
-**JavaScript (app.js):**
+**JavaScript:**
 ```javascript
 setUserConfig: (props) => {
   const current = App.getUserConfig();
@@ -522,7 +522,7 @@ setUserConfig: (props) => {
 }
 ```
 
-**PHP (server.php):**
+**PHP:**
 ```php
 if ($argc >= 2) {
   $network_access = explode(':', escapeshellarg($argv[1]));
@@ -536,14 +536,14 @@ if ($argc >= 2) {
 
 ### Pattern 3: Defensive Pre-validation Pattern
 
-**Bash (start-xmrig.sh):**
+**Bash:**
 ```bash
 [[ -z $BIN_AWK ]] && die "awk not installed"
 [[ ! -r $BIN_XMRIG ]] && die "File missing read permission"
 [[ ! -x $BIN_XMRIG ]] && die "File missing exec permission"
 ```
 
-**JavaScript (app.js):**
+**JavaScript:**
 ```javascript
 if (!props) {
   console.error("Missing argument: props");
@@ -555,7 +555,7 @@ if (props.length === 0) {
 }
 ```
 
-**PHP (fpr.php):**
+**PHP:**
 ```php
 if (!file_exists($path . '/index.php') && 
     !file_exists($path . '/index.html')) {
@@ -569,7 +569,7 @@ if (!file_exists($path . '/index.php') &&
 
 ### Pattern 4: Structured Output Pattern
 
-**Bash (start-xmrig.sh):**
+**Bash:**
 ```bash
 function die() {
   echo -e "\nError: $*\n" >&2
@@ -577,14 +577,14 @@ function die() {
 }
 ```
 
-**JavaScript (app.js):**
+**JavaScript:**
 ```javascript
 console.group("getUserAgent");
 console.log("detected:", UAP.getResult());
 console.groupEnd();
 ```
 
-**PHP (server.php):**
+**PHP:**
 ```php
 echo ' - System Info:' . PHP_EOL;
 echo "\t" . '- Current Path: ' . $config->current_path . PHP_EOL;
@@ -597,14 +597,14 @@ echo "\t" . '- OS: ' . PHP_OS . PHP_EOL;
 
 ### Pattern 5: State Preservation Pattern
 
-**Bash (start-xmrig.sh):**
+**Bash:**
 ```bash
 CURRENT_TEMP=$(get_device_temp)
 POWER_LEVEL=$(get_battery_level)
 POWER_STATUS=$(get_device_status)
 ```
 
-**JavaScript (app.js):**
+**JavaScript:**
 ```javascript
 const current = App.getUserConfig();
 const update = { ...current, ...props };
@@ -612,7 +612,7 @@ console.log("current:", current);
 console.log("update:", update);
 ```
 
-**PHP (server.php):**
+**PHP:**
 ```php
 $config->default_interface = '127.0.0.1';
 $config->user_interface = ... // updated without losing default
@@ -624,7 +624,7 @@ $config->user_interface = ... // updated without losing default
 
 ### Pattern 6: Operation Validation Pattern
 
-**Bash (start-xmrig.sh):**
+**Bash:**
 ```bash
 if [[ $CURRENT_TEMP -ge $MAX_DEV_TEMP ]]; then
   if [[ $MINER_STARTED == true ]]; then
@@ -634,7 +634,7 @@ if [[ $CURRENT_TEMP -ge $MAX_DEV_TEMP ]]; then
 fi
 ```
 
-**JavaScript (app.js):**
+**JavaScript:**
 ```javascript
 const response = await fetch(filePath);
 if (!response.ok) {
@@ -646,7 +646,7 @@ if (data) {
 }
 ```
 
-**PHP (server.php):**
+**PHP:**
 ```php
 pcntl_exec(
   trim(`which php`),
@@ -661,13 +661,13 @@ pcntl_exec(
 
 ### Pattern 7: Fallback Strategy Pattern
 
-**Bash (start-xmrig.sh):**
+**Bash:**
 ```bash
 [[ -r /sys/class/power_supply/AC0/uevent ]] && PWR_ONLINE=$(...)
 [[ -r /sys/class/power_supply/ADP1/uevent ]] && PWR_ONLINE=$(...)
 ```
 
-**JavaScript (app.js):**
+**JavaScript:**
 ```javascript
 switch(lang) {
   case 'fr':
@@ -681,7 +681,7 @@ switch(lang) {
 }
 ```
 
-**PHP (server.php):**
+**PHP:**
 ```php
 $network_access = explode(':', escapeshellarg($argv[1]));
 if (count($network_access) === 2) {
@@ -697,7 +697,7 @@ if (count($network_access) === 2) {
 
 ### Pattern 8: Pure Function Pattern
 
-**Bash (start-xmrig.sh):**
+**Bash:**
 ```bash
 function print_usage() {
   echo -e "\nUsage: $SCRIPT_FILE [flags]..."
@@ -705,14 +705,14 @@ function print_usage() {
 }
 ```
 
-**JavaScript (base82.js):**
+**JavaScript:**
 ```javascript
 function b82(str) {
   return rot5(rot13(window.btoa(str)));
 }
 ```
 
-**PHP (fpr.php):**
+**PHP:**
 ```php
 function generate_fp() {
   return hash('sha512', ...);
@@ -725,7 +725,7 @@ function generate_fp() {
 
 ### Pattern 9: Environment Adaptation Pattern
 
-**Bash (start-xmrig.sh):**
+**Bash:**
 ```bash
 function get_device_temp() {
   if [[ $(printenv | grep -ci android) -ne 0 ]]; then
@@ -736,7 +736,7 @@ function get_device_temp() {
 }
 ```
 
-**JavaScript (app.js):**
+**JavaScript:**
 ```javascript
 getUserAgent: () => {
   const ua = UAP.getResult().ua;
@@ -744,7 +744,7 @@ getUserAgent: () => {
 }
 ```
 
-**PHP (server.php):**
+**PHP:**
 ```php
 $config->nproc = trim(`nproc`);
 $config->current_path = __DIR__;
