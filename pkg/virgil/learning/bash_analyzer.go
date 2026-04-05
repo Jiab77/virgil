@@ -294,60 +294,86 @@ func (ba *BashAnalyzer) analyzeSingleFile(filePath string) ([]CodePattern, Patte
 	return patterns, profile
 }
 
-// detectConfigurationCenter identifies centralized configuration patterns
-// Looks for explicit constants/variables at top of file before main logic
-// Returns count and line numbers where config variables are found
+// detectConfigurationCenter identifies centralized configuration patterns.
+// Looks for a cluster of variable assignments at or near the top of the file,
+// before main logic begins. Accepts all naming conventions:
+//   - UPPERCASE_WITH_UNDERSCORES (classic shell config)
+//   - _prefixed_lowercase (library/private convention, e.g. bincrypter.sh)
+//   - snake_case or mixed (e.g. updater.sh)
+//   - ANSI color variable blocks (NC=, RED=, BLUE=, etc.)
+//
+// The "top of file" window is relaxed to the first half of the file to handle
+// scripts that define colors first, then config vars after the shebang/header.
 func detectConfigurationCenter(text string, lines []string) (int, []int) {
 	configCount := 0
 	lineNumbers := make([]int, 0)
-	inConfigSection := true
+
+	// Scan up to the first half of the file
+	limit := len(lines) / 2
+	if limit < 20 {
+		limit = len(lines) // small files: scan all
+	}
 
 	for i, line := range lines {
-		trimmed := strings.TrimSpace(line)
-
-		// Stop looking once we hit function definitions or main logic
-		if strings.HasPrefix(trimmed, "function ") || strings.HasPrefix(trimmed, "main(") {
-			inConfigSection = false
+		if i >= limit {
+			break
 		}
 
-		// Count variable assignments that look like config (CAPS_WITH_UNDERSCORE or snake_case)
-		if inConfigSection && i < len(lines)/3 { // Config typically in first 1/3 of file
-			if strings.Contains(trimmed, "=") && !strings.HasPrefix(trimmed, "#") && !strings.HasPrefix(trimmed, "//") {
-				if isConfigVariable(trimmed) {
-					configCount++
-					lineNumbers = append(lineNumbers, i+1)
-				}
-			}
+		trimmed := strings.TrimSpace(line)
+
+		// Skip comments, blank lines, shebangs, source/export/declare
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") ||
+			strings.HasPrefix(trimmed, "source ") || strings.HasPrefix(trimmed, ". ") {
+			continue
+		}
+
+		// Stop at function definitions or compound commands — main logic has started
+		if strings.HasPrefix(trimmed, "function ") ||
+			strings.Contains(trimmed, "() {") ||
+			strings.HasPrefix(trimmed, "if ") ||
+			strings.HasPrefix(trimmed, "for ") ||
+			strings.HasPrefix(trimmed, "while ") {
+			break
+		}
+
+		if strings.Contains(trimmed, "=") && isConfigVariable(trimmed) {
+			configCount++
+			lineNumbers = append(lineNumbers, i+1)
 		}
 	}
 
-	// Configuration center pattern present if 3+ config variables at top
+	// Configuration center pattern present if 3+ config variables found
 	if configCount >= 3 {
 		return configCount, lineNumbers
 	}
 	return 0, make([]int, 0)
 }
 
-// isConfigVariable checks if a line looks like a configuration variable
+// isConfigVariable checks if a line looks like a configuration variable assignment.
+// Accepts UPPERCASE, _prefixed_lowercase, snake_case, and mixed conventions.
 func isConfigVariable(line string) bool {
-	// Look for patterns like VAR=value or VAR="${DEFAULT:-value}"
 	if !strings.Contains(line, "=") {
 		return false
 	}
 
-	parts := strings.Split(line, "=")
+	parts := strings.SplitN(line, "=", 2)
 	if len(parts) < 2 {
 		return false
 	}
 
 	varName := strings.TrimSpace(parts[0])
 
-	// Configuration variables are typically UPPERCASE or contain underscores
+	// Must be a plain identifier — no spaces, brackets, or operators
+	if strings.ContainsAny(varName, " \t[](){}$;|&<>") {
+		return false
+	}
+
+	// UPPERCASE (classic shell config: DEBUG=false, RETRY_COUNT=3)
 	if strings.ToUpper(varName) == varName && len(varName) > 1 {
 		return true
 	}
 
-	// Or snake_case with some capitals
+	// Contains underscore (snake_case, _private, MIXED_case)
 	if strings.Contains(varName, "_") {
 		return true
 	}
@@ -567,13 +593,22 @@ func detectStatePreservation(lines []string) (int, []int) {
 	return count, lineNumbers
 }
 
-// detectStructuredOutput identifies consistent message prefix format.
-// Looks for: [+], [-], [*], [!], [DEBUG], [INFO], [WARN], [ERROR] prefixes.
+// detectStructuredOutput identifies consistent structured output patterns.
+// Detects two styles, both valid:
+//
+//   Style A (bracket prefix): echo "[+] success", echo "[-] failure"
+//     Common in CTF/hacker tools and security scripts.
+//
+//   Style B (ANSI color codes): echo -e "${RED}...${NC}", echo -e "\033[0;31m..."
+//     The actual ANSI escape sequences are the ground truth — variable naming
+//     conventions (RED, CDR, BLUE, etc.) are irrelevant, only the escape code matters.
+//     Covers: \033[, \e[, \x1b[ and variable definitions containing those sequences.
 func detectStructuredOutput(lines []string) (int, []int) {
 	count := 0
 	lineNumbers := make([]int, 0)
 
-	prefixes := []string{
+	// Style A: bracket prefix patterns inside echo calls
+	bracketPrefixes := []string{
 		`"[+]`, `"[-]`, `"[*]`, `"[!]`,
 		`"[DEBUG]`, `"[INFO]`, `"[WARN]`, `"[ERROR]`,
 		`'[+]`, `'[-]`, `'[*]`, `'[!]`,
@@ -581,16 +616,36 @@ func detectStructuredOutput(lines []string) (int, []int) {
 		"[+]", "[-]", "[*]", "[!]",
 	}
 
+	// Style B: ANSI escape sequences — ground truth regardless of variable names
+	ansiSequences := []string{`\033[`, `\e[`, `\x1b[`}
+
 	for i, line := range lines {
-		if !strings.Contains(line, "echo") {
-			continue
-		}
-		for _, prefix := range prefixes {
-			if strings.Contains(line, prefix) {
-				count++
-				lineNumbers = append(lineNumbers, i+1)
-				break
+		matched := false
+
+		// Style A: bracket prefix inside echo
+		if strings.Contains(line, "echo") {
+			for _, prefix := range bracketPrefixes {
+				if strings.Contains(line, prefix) {
+					matched = true
+					break
+				}
 			}
+		}
+
+		// Style B: ANSI escape sequence anywhere on the line
+		// (variable definitions and echo usage both count)
+		if !matched {
+			for _, seq := range ansiSequences {
+				if strings.Contains(line, seq) {
+					matched = true
+					break
+				}
+			}
+		}
+
+		if matched {
+			count++
+			lineNumbers = append(lineNumbers, i+1)
 		}
 	}
 
