@@ -103,7 +103,29 @@ Read `MEMORY.md` for **EVERY** session.
 - Progress bar deferred: spinner used for both single-file and directory modes in TUI until `ProgressFunc` callback is added to `BashAnalyzer`
 - Lipgloss brand colour for virgil: `#7D56F4` (purple) — confirmed by user, do not change
 - **`virgil-learn` is the TUI + Learning mode test bed** — validate all TUI + Learning patterns here before applying to main `virgil` binary
-- **Design reference for main `virgil` binary TUI:** [Crush by Charmbracelet](https://github.com/charmbracelet/crush) — sidebar layout, section-based navigation (LSPs, MCPs, Modified Files, etc.), magenta/cyan palette, help bar at bottom with key/description pairs. Adapt the layout concept, not the colours (virgil keeps its own palette).
+- **Design references for Virgil TUI — see dedicated section below.**
+
+### TUI Design References & Visual Philosophy
+
+**Core principle:** Serious tools and beautiful colors are not opposites. Color carries meaning, not decoration. Virgil should be a serious tool that happens to look excellent.
+
+**Virgil brand colour:** `#7D56F4` (purple) — confirmed by user, do not change under any circumstances.
+
+| Project | Repo | What to take from it |
+|---|---|---|
+| **Crush** | https://github.com/charmbracelet/crush | Primary layout reference for `virgil` binary: sidebar + section navigation (LSPs, Modified Files, etc.), top brand bar, bottom help bar. Similar purpose to Virgil (LLM-driven code tooling). Adapt layout, keep Virgil's own palette. |
+| **GoAccess** | https://goaccess.io | Color as functional signal: green = healthy, red = warning/anomaly, cyan = active/important, dimmed = secondary. Dense data readable because color guides the eye. Apply to compliance status, pattern severity, verification results. |
+| **btop** | https://github.com/aristocratos/btop | Multi-panel bordered layout, themability. Proves color themes can coexist with professional utility. Lipgloss makes theming trivial — colors are variables, not hardcoded. Keep in mind for future Virgil theme support. |
+| **Bagels** | https://github.com/EnhancedJax/Bagels | Active panel signaling via single accent color on the active border only. Tab bar at top + help bar at bottom pattern. Orange/purple palette — shows non-standard colors work well in serious financial tooling. |
+| **Posting** | https://github.com/darrenburns/posting | Three-panel layout (sidebar + editor + response). Tab bar within panels. Status badges with semantic color (green = 200 OK, red = error). Autocomplete dropdown via lipgloss overlay. |
+| **Superfile** | https://github.com/yorukot/superfile | Multi-panel file manager in Go. Pink/magenta active panel border, cyan for folders, icon-based file type color coding. Shows how to handle multiple simultaneous panels without visual clutter. |
+
+**Recurring patterns across all six references (apply to Virgil):**
+- Bordered panels via `lipgloss.Border()` to separate concerns visually
+- Single accent color signals the active panel/tab — not multiple competing colors
+- Persistent help bar at the bottom in the same format every time
+- Color encodes semantic meaning: status, severity, active/inactive state
+- Tabs built directly with lipgloss — no separate component needed
 
 ### Important API Notes (bubbletea v2)
 
