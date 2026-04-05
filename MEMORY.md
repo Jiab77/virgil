@@ -84,7 +84,7 @@ Read `MEMORY.md` for **EVERY** session.
 
 **Intent-first redesign of `bash_analyzer.go`:**
 - Previous model built detectors from a single author's scripts — syntax-first, not intent-first. This created narrow detectors that failed on other authors' valid conventions.
-- Rewrote/extended all detectors to be intent-driven, validated against 8 scripts from 4 different authors: `cloak.sh`, `bincrypter.sh`, `updater.sh`, `bash_funcs`, `hackshell.sh`, `xmrig-remover.sh`, `ssh-key-backdoor.sh`, `start-xmrig.sh`, `dkms.in`.
+- Rewrote/extended all detectors to be intent-driven, validated against 8 scripts from 4 different authors.
 - Read the full Bash manual (`man1/bash.1.html`) to derive patterns from the spec, not from a single codebase.
 
 **Key detector improvements:**
@@ -93,7 +93,7 @@ Read `MEMORY.md` for **EVERY** session.
 - `detectStatePreservation()`: added `local` (idiomatic Bash scoping), `readonly` (write protection), `IFS=` manipulation, `trap ... ERR` — not just `OLD_`/`SAVED_` workaround pattern and `EXIT/TERM/INT`
 - `detectStructuredOutput()`: three styles — bracket prefix `[+]/[-]`, ANSI escape sequences (`\033[`, `\e[`, `\x1b[`, `$'\033['`, `$'\e['`), and named logging function definitions (`warn()`, `error()`, `log()`, etc.)
 - `detectConfigurationCenter()`: relaxed from first-third to first-half of file, no longer stops at `if [[ -t 1 ]]` TTY guard blocks, accepts `_prefixed_lowercase` and `snake_case` in addition to `UPPERCASE`
-- `detectAdaptability()`: added Style C — env var override pattern (`VAR=${VAR:-}`) used by `hackshell.sh`
+- `detectAdaptability()`: added Style C — env var override pattern (`VAR=${VAR:-}`)
 - All Phase 1 patterns now set `Present: true` — fixes the renderer bug where line numbers were silently dropped
 - `terminators` simplified to `["exit", "die", "return"]` — covers all exit codes without being overly specific
 
@@ -132,13 +132,13 @@ The Bash manual (`man bash`) is the ground truth for what patterns are intention
 ### Next Session Tasks
 
 1. Build `virgil-learn` and run against a real Bash codebase to validate all detector changes
-2. Create the PR from `v0/jonathanbarda-6759-6023aff7`
+2. Create the PR
 3. Plan `virgil learn` full pipeline implementation (learner.go → sqlite.go → SaveLearnedReport())
 4. Consider: Python analyzer using same intent-first approach + `GenerateReport()` for free
 
 ---
 
-> ## Session 14 (2026-04-05): TUI & Markdown rendering implemented in virgil-learn
+## Session 14 (2026-04-05): TUI & Markdown rendering implemented in virgil-learn
 
 ### Accomplishments
 
