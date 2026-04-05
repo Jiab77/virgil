@@ -235,8 +235,8 @@ func (ba *BashAnalyzer) analyzeSingleFile(filePath string) ([]CodePattern, Patte
 		patterns = append(patterns, CodePattern{
 			Type:        PatternTypeStatePreservation,
 			Name:        "state preservation",
-			Description: "Original state saved before mutation, restored after",
-			Example:     "OLD_IFS=$IFS; IFS=','; ...; IFS=$OLD_IFS",
+			Description: "Scope management and state protection via local, readonly, trap, or explicit save/restore",
+			Example:     "local var; readonly CONST=val; trap cleanup EXIT; OLD_IFS=$IFS",
 			Language:    "bash",
 			FilePath:    filePath,
 			Frequency:   count,
@@ -573,15 +573,27 @@ func detectMultiPathConfigLoading(lines []string) (int, []int) {
 	return count, lineNumbers
 }
 
-// detectStatePreservation identifies save-mutate-restore patterns.
-// Looks for: OLD_VAR=$VAR assignments or trap-based cleanup restores.
+// detectStatePreservation identifies patterns that protect and manage state.
+// Detects three forms, all valid:
+//
+//   Form A (explicit save/restore): OLD_VAR=$VAR, SAVED_IFS=$IFS, ORIG_PATH=$PATH
+//     The workaround pattern used by authors who do not know about `local`.
+//
+//   Form B (trap-based cleanup): trap cleanup_func EXIT/TERM/INT
+//     Signal handling for guaranteed state restoration on exit.
+//
+//   Form C (idiomatic scoping): local var inside functions, readonly for constants
+//     The correct Bash tools for scope management and write protection.
+//     Using `local` prevents global state mutation — it IS state preservation.
+//     Using `readonly` prevents accidental overwrite of constants.
 func detectStatePreservation(lines []string) (int, []int) {
 	count := 0
 	lineNumbers := make([]int, 0)
 
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
-		// OLD_VAR=$VAR or SAVED_VAR=$VAR
+
+		// Form A: explicit save/restore prefixes
 		if (strings.HasPrefix(trimmed, "OLD_") || strings.HasPrefix(trimmed, "SAVED_") ||
 			strings.HasPrefix(trimmed, "ORIG_") || strings.HasPrefix(trimmed, "PREV_")) &&
 			strings.Contains(trimmed, "=") {
@@ -589,9 +601,25 @@ func detectStatePreservation(lines []string) (int, []int) {
 			lineNumbers = append(lineNumbers, i+1)
 			continue
 		}
-		// trap ... EXIT/TERM/INT with restore logic
+
+		// Form B: trap-based signal/exit handler
 		if strings.Contains(trimmed, "trap") &&
-			(strings.Contains(trimmed, "EXIT") || strings.Contains(trimmed, "TERM") || strings.Contains(trimmed, "INT")) {
+			(strings.Contains(trimmed, "EXIT") || strings.Contains(trimmed, "TERM") ||
+				strings.Contains(trimmed, "INT") || strings.Contains(trimmed, "HUP")) {
+			count++
+			lineNumbers = append(lineNumbers, i+1)
+			continue
+		}
+
+		// Form C: local keyword inside a function body (idiomatic Bash scoping)
+		if strings.HasPrefix(trimmed, "local ") {
+			count++
+			lineNumbers = append(lineNumbers, i+1)
+			continue
+		}
+
+		// Form C: readonly keyword (write protection for constants)
+		if strings.HasPrefix(trimmed, "readonly ") {
 			count++
 			lineNumbers = append(lineNumbers, i+1)
 		}
