@@ -117,6 +117,18 @@ Read `MEMORY.md` for **EVERY** session.
 - Spinner colour set via `s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#7D56F4"))`
 - Plain/markdown mode spinner (future): run spinner in goroutine + `\r` carriage return trick — no bubbletea needed, keeps non-TUI path dependency-free
 
+### Animated Progress Bar API (bubbles v2)
+
+- Import: `charm.land/bubbles/v2/progress`
+- Init with: `progress.New(progress.WithDefaultBlend())` — smooth animated colour blend
+- `SetWidth(n int)` — call on `tea.WindowSizeMsg` to make it responsive; cap at `maxWidth = 80`
+- `IncrPercent(amount float64) tea.Cmd` — increment by a fraction (e.g. 0.25); returns a `tea.Cmd` to animate
+- `SetPercent(amount float64) tea.Cmd` — set absolute percentage; also returns animation `tea.Cmd`
+- `Percent() float64` — read current value; check `== 1.0` to know when done
+- `progress.FrameMsg` — must be handled in `Update()` and passed back to `m.progress.Update(msg)` to drive the animation frames
+- Tick pattern: use `tea.Tick(interval, func(t time.Time) tea.Msg { return tickMsg(t) })` to drive progress updates
+- Use case in Virgil: drive progress bar from a `ProgressFunc` callback on `BashAnalyzer` (and future language analyzers) during directory scan mode — one tick per file processed
+
 ### Next Session Tasks
 
 1. Run `go mod tidy` to resolve `go.sum` (dependencies added manually to `go.mod`)
