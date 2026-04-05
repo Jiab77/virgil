@@ -100,7 +100,7 @@ func runAnalysis(codebasePath string) tea.Cmd {
 // Update
 // ----------------------------------------------------------------------------
 
-func (m tuiModel) Update(msg tea.Msg) (tuiModel, tea.Cmd) {
+func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
@@ -186,14 +186,18 @@ func (m tuiModel) View() tea.View {
 			filePath.Render(m.codebasePath)
 		helpBar := help.Render("  j/k / arrows scroll  · q quit")
 
-		return tea.NewView(
+		v := tea.NewView(
 			titleBar + "\n" +
 				m.viewport.View() + "\n" +
 				helpBar,
-		).AltScreen(true)
+		)
+		v.AltScreen = true
+		return v
 	}
 
-	return tea.NewView("").AltScreen(true)
+	v := tea.NewView("")
+	v.AltScreen = true
+	return v
 }
 
 // ----------------------------------------------------------------------------
