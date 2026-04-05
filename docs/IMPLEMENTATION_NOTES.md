@@ -401,3 +401,36 @@ If pipeline fails:
 - Display search sources with generated code
 
 ---
+
+## TUI Implementation (Session 14)
+
+### Design Philosophy
+Serious tools and beautiful colors are not opposites. Color carries meaning, not decoration. Virgil should be a serious tool that happens to look excellent. References: Crush, GoAccess, btop, Bagels, Posting, Superfile.
+
+**Brand colour:** `#7D56F4` (purple) — fixed, do not change.
+
+### Output Mode Architecture
+
+`virgil-learn` implements three independent, composable output modes:
+
+| Mode | Flag | Dependencies | Description |
+|---|---|---|---|
+| Plain text | _(default)_ | None | Original output, byte-for-byte unchanged |
+| Markdown | `--markdown` / `--md` | `charm.land/glamour/v2` | Glamour ANSI-styled output to stdout |
+| TUI | `--tui` | bubbletea v2, bubbles v2, lipgloss v2 | Interactive spinner + scrollable viewport |
+
+All flags are orthogonal — `--tui --markdown` is a valid and meaningful combination.
+
+### New Files (virgil-learn)
+
+- `cmd/virgil-learn/renderer.go` — `renderPlainText()`, `renderMarkdown()`, `terminalWidth()`, `sortedKeys[K]()` generic helper
+- `cmd/virgil-learn/tui.go` — full bubbletea v2 model: `tuiModel`, `Init()`, `Update()`, `View()`, `runTUI()`, `groupPatterns()`
+
+### Charmbracelet Stack Added to go.mod
+
+```
+charm.land/glamour/v2    v2.0.0
+charm.land/bubbletea/v2  v2.0.2
+charm.land/bubbles/v2    v2.1.0
+charm.land/lipgloss/v2   v2.0.2
+```
