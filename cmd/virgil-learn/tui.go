@@ -15,15 +15,10 @@ import (
 // Lipgloss styles
 // ----------------------------------------------------------------------------
 
-// Colour palette aligned with Glamour's dark theme:
-//   #2AA198  teal   — primary accent (headings, brand label)
-//   #859900  green  — secondary accent (file paths, detected status)
-//   #FDF6E3  cream  — body / header text
-//   #FF5F5F  red    — errors
 var (
-	virgil   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#2AA198"))
-	header   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FDF6E3"))
-	filePath = lipgloss.NewStyle().Foreground(lipgloss.Color("#859900"))
+	virgil   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#7D56F4"))
+	header   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FFFFFF"))
+	filePath = lipgloss.NewStyle().Foreground(lipgloss.Color("#7D56F4"))
 	help     = lipgloss.NewStyle().Faint(true)
 	errStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FF5F5F"))
 )
